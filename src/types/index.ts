@@ -1,0 +1,68 @@
+// CLI配置选项
+export interface ConfigOptions {
+  cookie?: string;
+  output?: string;
+  browserPath?: string;
+  qrCodePath?: string;
+}
+
+// 配置文件结构
+export interface Config {
+  cookie: string;
+  outputDir: string;
+  browserPath: string | null;
+  defaultGrade: '高中' | '初中';
+  headless: boolean;
+  qrCodePath: string;
+}
+
+// 题目题型
+export type QuestionType = 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
+
+// 题目难度
+export type Difficulty = 'd1' | 'd2' | 'd3' | 'd4' | 'd5';
+
+// 年份
+export type Year = 2023 | 2024 | 2025 | 2026;
+
+// 年级
+export type Grade = 'g1' | 'g2' | 'g3';
+
+// 来源
+export type Source = 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7' | 's8' | 's9' | 's10' | 's11' | 's12' | 's13';
+
+// 地区
+export interface Region {
+  id: string;
+  name: string;
+}
+
+// 学期
+export type Semester = 'x1' | 'x2';
+
+// 分类
+export type Category = 'k1' | 'k2' | 'k3' | 'k4' | 'k5';
+
+// Scrape命令参数
+export interface ScrapeOptions {
+  knowledge: string;
+  type?: QuestionType;
+  difficulty?: Difficulty;
+  year?: Year;
+  grade?: Grade;
+  limit?: number;
+  output?: string;
+  multiCount?: number; // 多选题答案数: 2, 3, 4+
+  fillCount?: number; // 填空题空数: 1, 2, 3+
+  page?: number; // 分页页码
+}
+
+// 抓取结果
+export interface ScrapeResult {
+  id: string;
+  questionPath: string;
+  answerPath: string;
+  questionText: string;
+  answerText: string;
+  timestamp: string;
+}

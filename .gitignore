@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# generated files
+storage-state.json
+cookie.txt
+login-qrcode.png
+zujuan-output/
+*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# OCR models (large)
+*.traineddata
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
