@@ -4,6 +4,7 @@ export interface ConfigOptions {
   output?: string;
   browserPath?: string;
   qrCodePath?: string;
+  defaultGrade?: '高中' | '初中';
 }
 
 // 配置文件结构

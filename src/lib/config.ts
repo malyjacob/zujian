@@ -60,8 +60,11 @@ export class ConfigManager {
     if (options.browserPath !== undefined) {
       this.config.browserPath = options.browserPath;
     }
-    if ((options as any).qrCodePath !== undefined) {
-      this.config.qrCodePath = (options as any).qrCodePath;
+    if (options.qrCodePath !== undefined) {
+      this.config.qrCodePath = options.qrCodePath;
+    }
+    if (options.defaultGrade !== undefined) {
+      this.config.defaultGrade = options.defaultGrade;
     }
     this.saveConfig();
   }
