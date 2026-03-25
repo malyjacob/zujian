@@ -17,7 +17,7 @@ export function createConfigCommand(): Command {
     .option('-o, --output <path>', '设置输出路径')
     .option('-b, --browser-path <path>', '设置浏览器路径')
     .option('-q, --qr-code-path <path>', '设置二维码图片保存路径')
-    .option('-g, --default-grade <grade>', '设置默认年级: 高中 或 初中')
+    .option('-g, --default-grade <grade>', '设置默认年级: high=高中 middle=初中')
     .action((options) => {
       if (options.cookie || options.output || options.browserPath || options.qrCodePath || options.defaultGrade) {
         configManager.set({
@@ -25,7 +25,7 @@ export function createConfigCommand(): Command {
           output: options.output,
           browserPath: options.browserPath,
           qrCodePath: options.qrCodePath,
-          defaultGrade: options.defaultGrade as '高中' | '初中' | undefined,
+          defaultGrade: options.defaultGrade as 'high' | 'middle' | undefined,
         });
         console.log('配置已更新');
       } else {

@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: Config = {
   cookie: '',
   outputDir: './zujuan-output',
   browserPath: null,
-  defaultGrade: '高中',
+  defaultGrade: 'high',
   headless: false,
   qrCodePath: './login-qrcode.png',
 };

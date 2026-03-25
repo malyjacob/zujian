@@ -31,12 +31,12 @@ export class ScraperEngine {
     // 导入 UrlBuilder
     const { UrlBuilder } = await import('./url-builder');
     // 从配置获取年级类型
-    const gradeType = configManager.get('defaultGrade') || '高中';
+    const gradeType = configManager.get('defaultGrade') || 'high';
 
     const url = UrlBuilder.buildUrl(
       knowledge,
       { type, difficulty, year, grade, multiCount, fillCount, page },
-      gradeType as '高中' | '初中'
+      gradeType as 'high' | 'middle'
     );
 
     console.log(`正在访问: ${url}`);

@@ -19,13 +19,13 @@ export class UrlBuilder {
   private gradePart: string = '';
   private pagePart: string = '';
 
-  constructor(knowledgeId: string, grade: '高中' | '初中' = '高中') {
+  constructor(knowledgeId: string, grade: 'high' | 'middle' = 'high') {
     this.knowledgeId = knowledgeId;
     this.grade = grade;
   }
 
   private getGradePrefix(): string {
-    return this.grade === '高中' ? 'gzsx' : 'czsx';
+    return this.grade === 'high' ? 'gzsx' : 'czsx';
   }
 
   private validateType(type: QuestionType): boolean {
@@ -44,7 +44,7 @@ export class UrlBuilder {
   }
 
   private validateGrade(grade: Grade): boolean {
-    const validGrades: Grade[] = ['g1', 'g2', 'g3'];
+    const validGrades: Grade[] = ['high', 'middle'];
     return validGrades.includes(grade);
   }
 
@@ -169,7 +169,7 @@ export class UrlBuilder {
       multiCount?: number;
       fillCount?: number;
     },
-    grade: '高中' | '初中' = '高中'
+    grade: 'high' | 'middle' = 'high'
   ): string {
     const builder = new UrlBuilder(knowledgeId, grade);
 

@@ -84,23 +84,23 @@ node dist/index.js config --qr-code-path /var/www/qrcode.png
 ```json
 {
   "outputDir": "./zujuan-output",
-  "defaultGrade": "高中",
+  "defaultGrade": "high",
   "headless": false,
   "qrCodePath": "./login-qrcode.png"
 }
 ```
 
-**年级设置**：`defaultGrade` 可设置为 `高中` 或 `初中`，影响爬取 URL 前缀：
-- 高中：`gzsx` (例: `https://zujuan.xkw.com/gzsx/...`)
-- 初中：`czsx` (例: `https://zujuan.xkw.com/czsx/...`)
+**年级设置**：`defaultGrade` 可设置为 `high` 或 `middle`，影响爬取 URL 前缀：
+- `high` → 高中：`gzsx` (例: `https://zujuan.xkw.com/gzsx/...`)
+- `middle` → 初中：`czsx` (例: `https://zujuan.xkw.com/czsx/...`)
 
 通过命令行设置：
 ```bash
 # 设置为初中数学
-node dist/index.js config --default-grade 初中
+node dist/index.js config --default-grade middle
 
 # 设置为高中数学
-node dist/index.js config --default-grade 高中
+node dist/index.js config --default-grade high
 ```
 
 ### 知识点树
@@ -201,7 +201,7 @@ node dist/index.js scrape -k zsd27927 -t t2 -d d4 -y 2025 -l 10
 | `-t, --type <type>` | 题型: t1/t2/t3/t4 | - |
 | `-d, --difficulty <level>` | 难度: d1/d2/d3/d4/d5 | - |
 | `-y, --year <year>` | 年份: 2023/2024/2025/2026 | - |
-| `-g, --grade <grade>` | 年级: g1/g2/g3 | - |
+| `-g, --grade <grade>` | 年级: high/middle（默认使用配置） | - |
 | `-l, --limit <number>` | 最大抓取数量 | 10 (1-10) |
 | `-mc, --multi-count <number>` | 多选题答案数量: 2/3/4+ | - |
 | `-fc, --fill-count <number>` | 填空题空数: 1/2/3+ | - |

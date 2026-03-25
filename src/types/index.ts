@@ -4,7 +4,7 @@ export interface ConfigOptions {
   output?: string;
   browserPath?: string;
   qrCodePath?: string;
-  defaultGrade?: '高中' | '初中';
+  defaultGrade?: 'high' | 'middle';
 }
 
 // 配置文件结构
@@ -12,7 +12,7 @@ export interface Config {
   cookie: string;
   outputDir: string;
   browserPath: string | null;
-  defaultGrade: '高中' | '初中';
+  defaultGrade: 'high' | 'middle';
   headless: boolean;
   qrCodePath: string;
 }
@@ -26,8 +26,8 @@ export type Difficulty = 'd1' | 'd2' | 'd3' | 'd4' | 'd5';
 // 年份
 export type Year = 2023 | 2024 | 2025 | 2026;
 
-// 年级
-export type Grade = 'g1' | 'g2' | 'g3';
+// 年级: high=高中, middle=初中
+export type Grade = 'high' | 'middle';
 
 // 来源
 export type Source = 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7' | 's8' | 's9' | 's10' | 's11' | 's12' | 's13';
