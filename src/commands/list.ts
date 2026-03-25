@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import {
   loadHighSchoolTree,
+  loadMiddleSchoolTree,
+  loadKnowledgeTree,
   findNodesByName,
   findNodeById,
   getNodePath,
@@ -15,18 +17,21 @@ export function createListCommand(): Command {
     .option('-s, --search <name>', '搜索知识点名称')
     .option('-i, --id <id>', '通过ID查找知识点')
     .option('-p, --path <id>', '显示知识点的完整路径')
-    .option('-t, --tree', '显示完整知识点树（高中）')
+    .option('-t, --tree', '显示完整知识点树')
+    .option('-m, --middle', '使用初中知识点树（默认高中）')
     .option('--level <level>', '显示指定层级的知识点', (val) => parseInt(val))
     .action((options) => {
-      const roots = loadHighSchoolTree();
+      const isMiddle = options.middle || false;
+      const roots = isMiddle ? loadMiddleSchoolTree() : loadHighSchoolTree();
+      const treeName = isMiddle ? '初中' : '高中';
 
       if (roots.length === 0) {
-        console.log('未找到知识点树文件 KNOWLEDGE_TREE_HIGH.txt');
+        console.log(`未找到知识点树文件 KNOWLEDGE_TREE_${treeName.toUpperCase()}.txt`);
         return;
       }
 
       if (options.tree) {
-        console.log('高中数学知识点树:\n');
+        console.log(`${treeName}数学知识点树:\n`);
         printTree(roots);
         return;
       }

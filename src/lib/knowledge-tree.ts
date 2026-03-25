@@ -152,3 +152,23 @@ export function loadHighSchoolTree(): KnowledgeNode[] {
   }
   return highSchoolTree;
 }
+
+// 加载初中知识点树
+let middleSchoolTree: KnowledgeNode[] | null = null;
+
+export function loadMiddleSchoolTree(): KnowledgeNode[] {
+  if (!middleSchoolTree) {
+    const filePath = path.join(process.cwd(), 'KNOWLEDGE_TREE_MIDDLE.txt');
+    if (fs.existsSync(filePath)) {
+      middleSchoolTree = parseKnowledgeTree(filePath);
+    } else {
+      middleSchoolTree = [];
+    }
+  }
+  return middleSchoolTree;
+}
+
+// 根据年级类型加载对应的知识点树
+export function loadKnowledgeTree(gradeType: '高中' | '初中'): KnowledgeNode[] {
+  return gradeType === '高中' ? loadHighSchoolTree() : loadMiddleSchoolTree();
+}

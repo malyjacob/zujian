@@ -4,6 +4,7 @@ import * as path from 'path';
 import { browserManager } from './browser';
 import { ocrProcessor } from './ocr';
 import { ScrapeResult, ScrapeOptions } from '../types';
+import { configManager } from './config';
 
 export class ScraperEngine {
   private page: Page | null = null;
@@ -29,7 +30,8 @@ export class ScraperEngine {
 
     // 导入 UrlBuilder
     const { UrlBuilder } = await import('./url-builder');
-    const gradeType = '高中'; // 可以从配置或参数获取
+    // 从配置获取年级类型
+    const gradeType = configManager.get('defaultGrade') || '高中';
 
     const url = UrlBuilder.buildUrl(
       knowledge,

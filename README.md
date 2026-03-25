@@ -84,10 +84,30 @@ node dist/index.js config --qr-code-path /var/www/qrcode.png
 ```json
 {
   "outputDir": "./zujuan-output",
-  "defaultGrade": "高中",
+  "defaultGrade": "高中",  // 或 "初中"
   "headless": false,
   "qrCodePath": "./login-qrcode.png"
 }
+```
+
+**年级设置**：`defaultGrade` 可设置为 `高中` 或 `初中`，影响 URL 前缀：
+- 高中：`gzsx`
+- 初中：`czsx`
+
+### 知识点树
+
+```bash
+# 查看高中知识点树
+node dist/index.js list --tree
+
+# 查看初中知识点树
+node dist/index.js list --tree --middle
+
+# 搜索知识点
+node dist/index.js list --search 函数
+
+# 搜索初中知识点
+node dist/index.js list --search 函数 --middle
 ```
 
 ## 使用方法
