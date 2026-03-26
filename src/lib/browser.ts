@@ -1,4 +1,4 @@
-import { chromium, Browser, Page, BrowserContext, ChromiumBrowser } from 'playwright';
+import { chromium, Browser, Page, BrowserContext } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -110,7 +110,7 @@ export class BrowserStateManager {
 
 export class BrowserManager {
   private static instance: BrowserManager | null = null;
-  private browser: ChromiumBrowser | null = null;
+  private browser: Browser | null = null;
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private wsEndpoint: string | null = null;
@@ -162,7 +162,7 @@ export class BrowserManager {
 
     try {
       // 启动浏览器
-      this.browser = await chromium.launch(options) as ChromiumBrowser;
+      this.browser = await chromium.launch(options);
 
       // 直接获取 WebSocket 端点
       this.wsEndpoint = (this.browser as any).wsEndpoint();
@@ -321,12 +321,12 @@ export class BrowserManager {
     try {
       // 使用 wsEndpoint 连接
       const { chromium } = require('playwright');
-      this.browser = await chromium.connectOverCDP(state.wsEndpoint) as ChromiumBrowser;
+      this.browser = await chromium.connectOverCDP(state.wsEndpoint);
       this.wsEndpoint = state.wsEndpoint;
       this.pid = state.pid;
 
       // 获取现有上下文
-      const contexts = this.browser.contexts();
+      const contexts = this.browser!.contexts();
       if (contexts.length > 0) {
         this.context = contexts[0];
         const pages = this.context.pages();
@@ -336,7 +336,7 @@ export class BrowserManager {
       }
 
       if (!this.page) {
-        this.context = await this.browser.newContext();
+        this.context = await this.browser!.newContext();
         this.page = await this.context.newPage();
       }
 
