@@ -335,17 +335,34 @@ export class BrowserManager {
   // 扫码登录流程
   private async doQRCodeLogin(): Promise<void> {
     try {
-      // 点击登录按钮
-      console.log('正在点击登录按钮...');
-      const loginBtn = await this.page!.$('a.login-btn[href="javascript:logindiv()"]');
-      if (loginBtn) {
-        await loginBtn.click();
-        await this.page!.waitForTimeout(2000);
-      } else {
-        console.log('未找到登录按钮，尝试其他方式...');
-        await this.page!.goto('https://zujuan.xkw.com', { waitUntil: 'domcontentloaded' });
-        await this.page!.waitForTimeout(1000);
-      }
+      // 直接通过 JavaScript 调用登录函数，跳过 DOM 点击
+      console.log('正在触发登录函数...');
+      await this.page!.evaluate(() => {
+        // 移除可能存在的覆盖层
+        const overlay = document.querySelector('div.ai-search-guide-panel');
+        if (overlay) {
+          (overlay as HTMLElement).style.display = 'none';
+        }
+        // 调用登录函数 - 使用 any 类型绕过 TypeScript 检查
+        const win = window as any;
+        if (typeof win.logindiv === 'function') {
+          win.logindiv();
+        } else {
+          // 尝试通过 href 触发
+          const loginLink = document.querySelector('a.login-btn[href^="javascript:"]');
+          if (loginLink) {
+            const href = loginLink.getAttribute('href');
+            if (href) {
+              const fnMatch = href.match(/javascript:(\w+)\(/);
+              if (fnMatch && fnMatch[1] && typeof win[fnMatch[1]] === 'function') {
+                win[fnMatch[1]]();
+              }
+            }
+          }
+        }
+      });
+      await this.page!.waitForTimeout(2000);
+      console.log('已触发登录函数');
 
       // 等待二维码加载
       console.log('正在获取二维码...');
