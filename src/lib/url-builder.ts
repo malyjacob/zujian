@@ -3,6 +3,7 @@ import {
   Difficulty,
   Year,
   Grade,
+  Order,
   Source,
   Semester,
   Category,
@@ -17,7 +18,8 @@ export class UrlBuilder {
   private difficultyPart: string = '';
   private yearPart: string = '';
   private gradePart: string = '';
-  private pagePart: string = '';
+  private orderPart: string = 'o2';
+  private pageNum: number = 0;
 
   constructor(knowledgeId: string, grade: 'high' | 'middle' = 'high') {
     this.knowledgeId = knowledgeId;
@@ -51,32 +53,23 @@ export class UrlBuilder {
   setType(type: QuestionType, multiCount?: number, fillCount?: number): this {
     if (!this.validateType(type)) return this;
 
-    // t1=单选题, t2=多选题, t3=填空题, t4=解答题
-    const typeMap: Record<string, string> = {
-      t1: '2701',
-      t2: '2704',
-      t3: '2702',
-      t4: '2703',
-    };
+    // 高中题型码: 单选2701, 多选2704, 填空2702, 解答2703
+    // 初中题型码: 单选1101, 多选1104, 填空1102, 解答1103
+    const typeMap = this.grade === 'high'
+      ? { t1: '2701', t2: '2704', t3: '2702', t4: '2703' }
+      : { t1: '1101', t2: '1104', t3: '1102', t4: '1103' };
 
-    const baseType = typeMap[type];
+    const baseType = typeMap[type as keyof typeof typeMap];
     if (!baseType) return this;
 
-    // 多选题: qt2704 + 01(2个)/02(3个)/03(4个及以上)
     if (type === 't2' && multiCount !== undefined) {
-      if (multiCount >= 4) {
-        this.typePart = `qt270403`;
-      } else if (multiCount >= 2) {
-        this.typePart = `qt27040${multiCount}`;
-      }
-    }
-    // 填空题: qt2702 + 01(单空)/02(双空)/03(多空)
-    else if (type === 't3' && fillCount !== undefined) {
-      if (fillCount >= 3) {
-        this.typePart = `qt270203`;
-      } else if (fillCount >= 1) {
-        this.typePart = `qt27020${fillCount}`;
-      }
+      // 多选题: qt{baseType} + 01(2个)/02(3个)/03(4个及以上)
+      const suffix = multiCount >= 4 ? '03' : `0${multiCount}`;
+      this.typePart = `qt${baseType}${suffix}`;
+    } else if (type === 't3' && fillCount !== undefined) {
+      // 填空题: qt{baseType} + 01(单空)/02(双空)/03(多空)
+      const suffix = fillCount >= 3 ? '03' : `0${fillCount}`;
+      this.typePart = `qt${baseType}${suffix}`;
     } else {
       this.typePart = `qt${baseType}`;
     }
@@ -125,12 +118,18 @@ export class UrlBuilder {
     return this;
   }
 
+  setOrder(order: Order): this {
+    const orderMap: Record<Order, string> = {
+      latest: 'o2',
+      hot: 'o1',
+      comprehensive: 'o0',
+    };
+    this.orderPart = orderMap[order] || 'o2';
+    return this;
+  }
+
   setPage(page: number): this {
-    if (page > 1) {
-      this.pagePart = `o2p${page}`;
-    } else {
-      this.pagePart = 'o2';
-    }
+    this.pageNum = page;
     return this;
   }
 
@@ -138,11 +137,13 @@ export class UrlBuilder {
     const gradePrefix = this.getGradePrefix();
     const parts: string[] = [];
 
-    // Order: 题型 → 难度 → 年份 → o2/p{page} (直接拼接，无分隔符)
+    // Order: 题型 → 难度 → 年份 → 排序/分页 (直接拼接，无分隔符)
     if (this.typePart) parts.push(this.typePart);
     if (this.difficultyPart) parts.push(this.difficultyPart);
     if (this.yearPart) parts.push(this.yearPart);
-    parts.push(this.pagePart || 'o2');
+
+    const pagePart = this.pageNum > 1 ? `${this.orderPart}p${this.pageNum}` : this.orderPart;
+    parts.push(pagePart);
 
     // Strip 'zsd' prefix if present to avoid duplication
     const knowledgeId = this.knowledgeId.replace(/^zsd/, '');
@@ -161,6 +162,7 @@ export class UrlBuilder {
       difficulty?: Difficulty;
       year?: Year;
       grade?: Grade;
+      order?: Order;
       source?: Source;
       region?: string;
       semester?: Semester;
@@ -169,7 +171,8 @@ export class UrlBuilder {
       multiCount?: number;
       fillCount?: number;
     },
-    grade: 'high' | 'middle' = 'high'
+    grade: 'high' | 'middle' = 'high',
+    defaultOrder: Order = 'latest'
   ): string {
     const builder = new UrlBuilder(knowledgeId, grade);
 
@@ -177,6 +180,7 @@ export class UrlBuilder {
     if (options.difficulty) builder.setDifficulty(options.difficulty);
     if (options.year) builder.setYear(options.year);
     if (options.grade) builder.setGrade(options.grade);
+    builder.setOrder(options.order || defaultOrder);
     if (options.page) builder.setPage(options.page);
 
     return builder.build();

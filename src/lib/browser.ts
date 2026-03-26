@@ -69,6 +69,43 @@ export class BrowserStateManager {
     }
   }
 
+  static async isBrowserRunningOnPort(port: number): Promise<boolean> {
+    try {
+      const result = await new Promise<boolean>((resolve) => {
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port,
+            path: '/json/version',
+            method: 'GET',
+            timeout: 3000,
+          },
+          (res) => {
+            let data = '';
+            res.on('data', (chunk) => (data += chunk));
+            res.on('end', () => {
+              try {
+                const version = JSON.parse(data);
+                resolve(!!version.webSocketDebuggerUrl);
+              } catch {
+                resolve(false);
+              }
+            });
+          }
+        );
+        req.on('error', () => resolve(false));
+        req.on('timeout', () => {
+          req.destroy();
+          resolve(false);
+        });
+        req.end();
+      });
+      return result;
+    } catch {
+      return false;
+    }
+  }
+
   static isBrowserRunning(): boolean {
     const state = this.load();
     if (!state) return false;
@@ -167,16 +204,30 @@ export class BrowserManager {
   async launch(): Promise<void> {
     writeLog('开始启动浏览器...');
 
+    const browserPath = configManager.get('browserPath');
+    const headless = configManager.get('headless');
+    const port = configManager.get('browserPort');
+
+    // 检查端口上是否已有浏览器运行（即使状态文件丢失）
+    if (await BrowserStateManager.isBrowserRunningOnPort(port)) {
+      console.log(`检测到端口 ${port} 上已有浏览器运行，尝试连接到现有浏览器...`);
+      writeLog(`检测到端口 ${port} 上已有浏览器运行`);
+      try {
+        await this.connect();
+        console.log('成功连接到已运行的浏览器！');
+        return;
+      } catch (connectError) {
+        writeLog(`连接现有浏览器失败: ${connectError}，将尝试重新启动`);
+        console.log('连接失败，将重新启动浏览器...');
+      }
+    }
+
     if (BrowserStateManager.isBrowserRunning()) {
       const state = BrowserStateManager.load();
       console.log(`浏览器已在运行 (PID: ${state?.pid})，请先使用 shutup 命令关闭`);
       writeLog('启动失败：浏览器已在运行');
       throw new Error('浏览器已在运行');
     }
-
-    const browserPath = configManager.get('browserPath');
-    const headless = configManager.get('headless');
-    const port = configManager.get('browserPort');
 
     // 找到 chromium 可执行文件
     const chromiumPath = browserPath || 

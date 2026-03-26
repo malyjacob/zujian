@@ -7,6 +7,7 @@ import {
   Difficulty,
   Year,
   Grade,
+  Order,
 } from '../types';
 
 export function createScrapeCommand(): Command {
@@ -19,6 +20,7 @@ export function createScrapeCommand(): Command {
     .option('-d, --difficulty <level>', '难度: d1=容易 d2=较易 d3=适中 d4=较难 d5=困难')
     .option('-y, --year <year>', '年份: 2026/2025/2024/2023')
     .option('-g, --grade <grade>', '年级: high=高中 middle=初中（默认使用配置中的defaultGrade）')
+    .option('-r, --order <order>', '排序: latest=最新 hot=最热 comprehensive=综合（默认使用配置中的defaultOrder）')
     .option('-l, --limit <number>', '最大抓取截图数量（1-10，默认10）', '10')
     .option('-o, --output <path>', '输出目录（默认配置中的路径）')
     .option('-mc, --multi-count <number>', '多选题答案数量: 2, 3, 4及以上')
@@ -26,8 +28,10 @@ export function createScrapeCommand(): Command {
     .option('-p, --page <number>', '分页页码（默认1，第二页起为o2p2格式）')
     .action(async (options) => {
       const limit = Math.min(10, Math.max(1, parseInt(options.limit) || 10));
-      // 如果未指定grade，使用配置中的defaultGrade
+      // 年级：命令行指定优先，否则使用配置默认值
       const grade = (options.grade as Grade) || configManager.get('defaultGrade');
+      // 排序：命令行指定优先，否则使用配置默认值
+      const order = (options.order as Order) || configManager.get('defaultOrder');
 
       const scrapeOptions: ScrapeOptions = {
         knowledge: options.knowledge,
@@ -35,6 +39,7 @@ export function createScrapeCommand(): Command {
         difficulty: options.difficulty as Difficulty | undefined,
         year: options.year ? parseInt(options.year) as Year : undefined,
         grade,
+        order,
         limit,
         output: options.output || configManager.get('outputDir'),
         multiCount: options.multiCount ? parseInt(options.multiCount) : undefined,
@@ -43,10 +48,12 @@ export function createScrapeCommand(): Command {
       };
 
       const gradeName = grade === 'high' ? '高中' : '初中';
+      const orderName = { latest: '最新', hot: '最热', comprehensive: '综合' }[order];
 
       console.log('开始抓取题目...');
       console.log(`知识点: ${scrapeOptions.knowledge}`);
       console.log(`年级: ${gradeName}`);
+      console.log(`排序: ${orderName}`);
       if (scrapeOptions.type) console.log(`题型: ${scrapeOptions.type}`);
       if (scrapeOptions.difficulty) console.log(`难度: ${scrapeOptions.difficulty}`);
       if (scrapeOptions.year) console.log(`年份: ${scrapeOptions.year}`);

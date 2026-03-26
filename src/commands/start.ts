@@ -25,6 +25,7 @@ export function createStartCommand(): Command {
 
         // 启动浏览器（阻塞模式，等待登录完成）
         await browserManager.launch();
+        await browserManager.close();
 
         console.log('\n========================================');
         console.log('浏览器已在后台运行！');
@@ -32,6 +33,7 @@ export function createStartCommand(): Command {
         console.log('  scrape - 抓取题目');
         console.log('  shutup  - 关闭浏览器');
         console.log('========================================');
+        process.exit(0);
 
       } catch (error) {
         console.error('\n启动浏览器失败:', error);

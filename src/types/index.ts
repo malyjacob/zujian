@@ -5,7 +5,9 @@ export interface ConfigOptions {
   browserPath?: string;
   qrCodePath?: string;
   defaultGrade?: 'high' | 'middle';
+  defaultOrder?: Order;
   browserPort?: number;
+  headless?: boolean;
   logEnabled?: boolean;
   logPath?: string;
 }
@@ -16,6 +18,7 @@ export interface Config {
   outputDir: string;
   browserPath: string;
   defaultGrade: 'high' | 'middle';
+  defaultOrder: Order;
   headless: boolean;
   qrCodePath: string;
   browserPort: number;
@@ -34,6 +37,9 @@ export type Year = 2023 | 2024 | 2025 | 2026;
 
 // 年级: high=高中, middle=初中
 export type Grade = 'high' | 'middle';
+
+// 排序方式: latest=最新(o2), hot=最热(o4), comprehensive=综合(o0)
+export type Order = 'latest' | 'hot' | 'comprehensive';
 
 // 来源
 export type Source = 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7' | 's8' | 's9' | 's10' | 's11' | 's12' | 's13';
@@ -57,6 +63,7 @@ export interface ScrapeOptions {
   difficulty?: Difficulty;
   year?: Year;
   grade?: Grade;
+  order?: Order;
   limit?: number;
   output?: string;
   multiCount?: number; // 多选题答案数: 2, 3, 4+

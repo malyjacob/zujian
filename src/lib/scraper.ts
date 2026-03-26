@@ -1,16 +1,24 @@
 import { Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as https from 'https';
+import * as http from 'http';
 import { browserManager } from './browser';
 import { ocrProcessor } from './ocr';
 import { ScrapeResult, ScrapeOptions } from '../types';
 import { configManager } from './config';
 
+interface QuestionTask {
+  id: string;
+  questionPath: string;
+  answerSrc: string | null;
+  answerPath: string;
+}
+
 export class ScraperEngine {
   private page: Page | null = null;
 
   async initialize(): Promise<void> {
-    // 使用连接模式连接到已运行的浏览器
     await browserManager.connect();
     this.page = await browserManager.getPage();
   }
@@ -24,164 +32,180 @@ export class ScraperEngine {
       difficulty,
       year,
       grade,
+      order,
       limit = 10,
       multiCount,
       fillCount,
       page,
     } = options;
 
-    // 导入 UrlBuilder
     const { UrlBuilder } = await import('./url-builder');
-    // 从配置获取年级类型
-    const gradeType = configManager.get('defaultGrade') || 'high';
+    const defaultOrder = order || configManager.get('defaultOrder');
 
     const url = UrlBuilder.buildUrl(
       knowledge,
-      { type, difficulty, year, grade, multiCount, fillCount, page },
-      gradeType as 'high' | 'middle'
+      { type, difficulty, year, multiCount, fillCount, page, order },
+      grade as 'high' | 'middle',
+      defaultOrder
     );
 
     console.log(`正在访问: ${url}`);
+    await this.page!.setViewportSize({ width: 1920, height: 1080 });
     await this.page!.goto(url, { waitUntil: 'domcontentloaded' });
-
-    // 等待页面加载
     await this.page!.waitForTimeout(3000);
 
-    // 滚动加载更多题目
     await this.scrollToLoadQuestions();
 
-    // 获取题目列表
-    const questions = await this.getQuestionSelectors();
-
-    const results: ScrapeResult[] = [];
     const outputDir = path.resolve(options.output || configManager.get('outputDir'));
 
-    // 确保输出目录存在
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
     console.log(`页面标题: ${await this.page!.title()}`);
-    console.log(`找到 ${questions.length} 个题目元素`);
 
-    if (questions.length === 0) {
-      // 保存页面源码用于调试
+    const questionHandles = await this.page!.$$('div.tk-quest-item.quesroot');
+    const totalQuestions = questionHandles.length;
+    const count = Math.min(totalQuestions, limit);
+
+    if (totalQuestions === 0) {
       const htmlPath = path.join(outputDir, `page_debug_${Date.now()}.html`);
-      const content = await this.page!.content();
-      fs.writeFileSync(htmlPath, content, 'utf-8');
+      fs.writeFileSync(htmlPath, await this.page!.content(), 'utf-8');
       console.log(`页面已保存到: ${htmlPath}`);
-      console.log(`请检查页面结构，更新选择器`);
+      console.log(`未找到任何题目，请检查页面结构`);
+      await browserManager.close();
+      return [];
     }
 
-    const count = Math.min(questions.length, limit);
+    console.log(`共找到 ${totalQuestions} 个题目，准备抓取 ${count} 道`);
+
+    // 第一步：逐题截图并收集答案 URL
+    const tasks: QuestionTask[] = [];
 
     for (let i = 0; i < count; i++) {
-      const questionId = `q_${Date.now()}_${i}`;
-      const questionPath = path.join(outputDir, `${questionId}_question.png`);
-      const answerPath = path.join(outputDir, `${questionId}_answer.png`);
+      const taskId = `q_${Date.now()}_${i}`;
+      const questionPath = path.join(outputDir, `${taskId}_question.png`);
+      const answerPath = path.join(outputDir, `${taskId}_answer.png`);
+      const handle = questionHandles[i];
 
       try {
-        // 点击展开答案
-        await questions[i].click();
-        await this.page!.waitForTimeout(500);
+        await handle.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }));
 
-        // 截图题目
-        await questions[i].screenshot({
-          path: questionPath,
-        });
+        const cntHandle = await handle.$('div.exam-item__cnt');
+        if (!cntHandle) {
+          console.log(`第 ${i + 1} 题：找不到题目内容区，跳过`);
+          continue;
+        }
+        await cntHandle.screenshot({ path: questionPath });
+        console.log(`第 ${i + 1}/${count}: 题目截图完成`);
 
-        // 查找对应的答案元素 (exam-item__opt)
-        const questItem = await questions[i].$('..'); // 父元素
-        const answerElement = questItem ? await questItem.$('div.exam-item__opt') : null;
+        const wrapperHandle = await handle.$('div.wrapper.quesdiv');
+        if (wrapperHandle) {
+          await wrapperHandle.click();
+        }
 
-        if (answerElement) {
-          // 截图答案
-          await answerElement.screenshot({
-            path: answerPath,
+        let answerSrc: string | null = null;
+        for (let attempt = 0; attempt < 15; attempt++) {
+          await this.page!.waitForTimeout(100);
+          answerSrc = await handle.evaluate((el) => {
+            const img = el.querySelector('div.exam-item__opt > div.item.answer img');
+            return (img as HTMLImageElement | null)?.src || null;
           });
-          console.log(`已抓取 ${i + 1}/${count}: ${questionId} (题目+答案)`);
+          if (answerSrc) break;
+        }
+
+        tasks.push({ id: taskId, questionPath, answerSrc, answerPath });
+
+        if (answerSrc) {
+          console.log(`第 ${i + 1}/${count}: 答案 URL 已收集`);
         } else {
-          console.log(`已抓取 ${i + 1}/${count}: ${questionId} (仅题目，未找到答案)`);
+          console.log(`第 ${i + 1}/${count}: 未找到答案图片`);
         }
-
-        // OCR 识别题目
-        const questionText = await ocrProcessor.screenshotToTextFromBuffer(
-          fs.readFileSync(questionPath)
-        );
-
-        // OCR 识别答案（如果有）
-        let answerText = '';
-        if (answerElement && fs.existsSync(answerPath)) {
-          answerText = await ocrProcessor.screenshotToTextFromBuffer(
-            fs.readFileSync(answerPath)
-          );
-        }
-
-        results.push({
-          id: questionId,
-          questionPath,
-          answerPath,
-          questionText,
-          answerText,
-          timestamp: new Date().toISOString(),
-        });
 
       } catch (error) {
-        console.error(`抓取题目 ${i + 1} 失败:`, error);
+        console.error(`第 ${i + 1} 题抓取失败:`, error);
+        await this.page!.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+        await this.page!.waitForTimeout(500);
       }
     }
 
-    // 保存结果到 JSON
+    // 第二步：并行下载所有答案图片
+    console.log('开始并行下载答案图片...');
+    await Promise.all(
+      tasks
+        .filter(t => t.answerSrc)
+        .map(t => this.downloadImage(t.answerSrc!, t.answerPath))
+    );
+
+    // 第三步：OCR 识别并构建结果
+    const results: ScrapeResult[] = await Promise.all(
+      tasks.map(async (t) => {
+        const questionText = await ocrProcessor.screenshotToTextFromBuffer(
+          fs.readFileSync(t.questionPath)
+        );
+
+        let answerText = '';
+        if (fs.existsSync(t.answerPath)) {
+          answerText = await ocrProcessor.screenshotToTextFromBuffer(
+            fs.readFileSync(t.answerPath)
+          );
+        }
+
+        return {
+          id: t.id,
+          questionPath: t.questionPath,
+          answerPath: fs.existsSync(t.answerPath) ? t.answerPath : '',
+          questionText,
+          answerText,
+          timestamp: new Date().toISOString(),
+        };
+      })
+    );
+
     const jsonPath = path.join(outputDir, `results_${Date.now()}.json`);
     fs.writeFileSync(jsonPath, JSON.stringify(results, null, 2), 'utf-8');
     console.log(`结果已保存到: ${jsonPath}`);
 
-    // 关闭连接（不关闭浏览器进程）
     await browserManager.close();
-
-    return results;
+    process.exit(0);
   }
 
   private async scrollToLoadQuestions(): Promise<void> {
     if (!this.page) return;
 
-    // 滚动到底部加载更多
-    await this.page.evaluate(() => {
-      window.scrollTo(0, document.body.scrollHeight);
-    });
-    await this.page.waitForTimeout(1000);
-
-    // 多次滚动以确保所有题目加载
     for (let i = 0; i < 3; i++) {
       await this.page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
-      await this.page.waitForTimeout(800);
+      await this.page.waitForTimeout(1000);
     }
+
+    await this.page.evaluate(() => {
+      window.scrollTo(0, 0);
+    });
+    await this.page.waitForTimeout(500);
   }
 
-  private async getQuestionSelectors(): Promise<any[]> {
-    if (!this.page) return [];
-
-    // 组卷网的题目选择器
-    // 题目列表: section.test-list
-    // 每道题: div.quest-item > div.wrapper.quesdiv > div.exam-item__cnt
-    const selectors = [
-      'div.exam-item__cnt',
-      'section.test-list div.quest-item div.exam-item__cnt',
-      'section.test-list div.quest-item',
-    ];
-
-    for (const selector of selectors) {
-      const elements = await this.page.$$(selector);
-      if (elements.length > 0) {
-        console.log(`找到 ${elements.length} 个题目 (${selector})`);
-        return elements;
-      }
-    }
-
-    // 默认返回空数组
-    return [];
+  private async downloadImage(url: string, destPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const client = url.startsWith('https') ? https : http;
+      client.get(url, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          const redirectUrl = res.headers.location;
+          if (redirectUrl) {
+            this.downloadImage(redirectUrl, destPath).then(resolve).catch(reject);
+            return;
+          }
+        }
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          fs.writeFileSync(destPath, Buffer.concat(chunks));
+          resolve();
+        });
+        res.on('error', reject);
+      }).on('error', reject);
+    });
   }
 }
 

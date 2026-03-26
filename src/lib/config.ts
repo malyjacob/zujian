@@ -11,6 +11,7 @@ const DEFAULT_CONFIG: Config = {
   outputDir: './zujuan-output',
   browserPath: '/usr/bin/google-chrome',
   defaultGrade: 'high',
+  defaultOrder: 'latest',
   headless: false,
   qrCodePath: './login-qrcode.png',
   browserPort: 9222,
@@ -69,8 +70,14 @@ export class ConfigManager {
     if (options.defaultGrade !== undefined) {
       this.config.defaultGrade = options.defaultGrade;
     }
+    if (options.defaultOrder !== undefined) {
+      this.config.defaultOrder = options.defaultOrder;
+    }
     if (options.browserPort !== undefined) {
       this.config.browserPort = options.browserPort;
+    }
+    if (options.headless !== undefined) {
+      this.config.headless = options.headless;
     }
     if (options.logEnabled !== undefined) {
       this.config.logEnabled = options.logEnabled;
