@@ -2,6 +2,7 @@ import { chromium, Browser, Page, BrowserContext } from 'playwright';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as http from 'http';
 import { spawn, ChildProcess } from 'child_process';
 import terminalImage from 'terminal-image';
 import { configManager } from './config';
@@ -164,12 +165,12 @@ export class BrowserManager {
       // 启动浏览器
       this.browser = await chromium.launch(options);
 
-      // 直接获取 WebSocket 端点
-      this.wsEndpoint = (this.browser as any).wsEndpoint();
+      // 通过 HTTP API 获取 WebSocket 端点
+      this.wsEndpoint = await this.getWsEndpointFromHttp(port);
       writeLog(`WebSocket 端点: ${this.wsEndpoint}`);
 
       // 通过 CDP 获取 PID
-      this.pid = await this.getBrowserPid();
+      this.pid = await this.getBrowserPid(port);
       if (this.pid) {
         writeLog(`Chromium 进程已启动，PID: ${this.pid}`);
       } else {
@@ -232,9 +233,45 @@ export class BrowserManager {
     }
   }
 
+  // 通过 HTTP API 获取 WebSocket 端点
+  private getWsEndpointFromHttp(port: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path: '/json/version',
+          method: 'GET',
+          timeout: 5000,
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => {
+            try {
+              const version = JSON.parse(data);
+              if (version.webSocketDebuggerUrl) {
+                resolve(version.webSocketDebuggerUrl);
+              } else {
+                reject(new Error('未找到 webSocketDebuggerUrl'));
+              }
+            } catch (e) {
+              reject(new Error(`解析版本信息失败: ${data}`));
+            }
+          });
+        }
+      );
+
+      req.on('error', (e) => reject(new Error(`HTTP 请求失败: ${e.message}`)));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('获取 WebSocket 端点超时'));
+      });
+    });
+  }
+
   // 通过 CDP 获取浏览器 PID
-  private async getBrowserPid(): Promise<number | null> {
-    const port = configManager.get('browserPort');
+  private async getBrowserPid(port: number): Promise<number | null> {
 
     try {
       const CDP = require('playwright-core').CDP;
