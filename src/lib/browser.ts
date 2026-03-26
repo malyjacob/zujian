@@ -164,9 +164,13 @@ export class BrowserManager {
     try {
       // 启动浏览器
       this.browser = await chromium.launch(options);
+      writeLog('Chromium 进程已启动');
+
+      // 等待浏览器完全就绪后再获取 WebSocket 端点
+      await this.wait(3000);
 
       // 通过 HTTP API 获取 WebSocket 端点
-      this.wsEndpoint = await this.getWsEndpointFromHttp(port);
+      this.wsEndpoint = await this.getWsEndpointFromHttp(port, 10, 2000);
       writeLog(`WebSocket 端点: ${this.wsEndpoint}`);
 
       // 通过 CDP 获取 PID
