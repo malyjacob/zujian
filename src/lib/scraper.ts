@@ -16,6 +16,11 @@ interface QuestionTask {
   answerPath: string;
   imagesSrc: string[];
   imagesPaths: string[];
+  source?: string;
+  questionType?: string;
+  difficulty?: string;
+  scoreRate?: number;
+  knowledgeKeywords: string[];
 }
 
 export class ScraperEngine {
@@ -120,6 +125,70 @@ export class ScraperEngine {
           logger.log('normal', `第 ${i + 1} 题：找不到题目内容区，跳过`);
           continue;
         }
+
+        // 提取题目额外信息：来源、题型、难度、得分率、知识点关键词
+        const extraInfo: {
+          source?: string;
+          questionType?: string;
+          difficulty?: string;
+          scoreRate?: number;
+          knowledgeKeywords: string[];
+        } = { knowledgeKeywords: [] };
+        await handle.evaluate((el) => {
+          const additional = el.querySelector('div.ques-additional');
+          if (!additional) return;
+
+          // 来源：span.addi-msg > a
+          const sourceAnchor = additional.querySelector('span.addi-msg > a');
+          if (sourceAnchor) (window as any).__extra_source = sourceAnchor.getAttribute('title');
+
+          // 题型、难度、得分率：div.left-msg > span.addi-info > span.info-cnt
+          const leftMsg = additional.querySelector('div.msg-box > div.left-msg');
+          if (leftMsg) {
+            const infoCntSpans = leftMsg.querySelectorAll('span.addi-info > span.info-cnt');
+            infoCntSpans.forEach((span) => {
+              const text = span.textContent?.trim() || '';
+              // 第一条：题型
+              if (text.includes('题型') || text.includes('题类')) {
+                (window as any).__extra_qtype = text.split(':')[1]?.trim() || text;
+              } else {
+                // 第二条：难度(得分率)
+                const match = text.match(/^(.+?)\(([0-9.]+)\)$/);
+                if (match) {
+                  (window as any).__extra_diff = match[1].trim();
+                  (window as any).__extra_score = parseFloat(match[2]);
+                }
+              }
+            });
+
+            // 知识点关键词：div.knowledge-list-wrapper > div.knowledge-list > a
+            const kwList = leftMsg.querySelectorAll('div.knowledge-list-wrapper > div.knowledge-list > a');
+            const kw: string[] = [];
+            kwList.forEach((a) => {
+              const title = a.getAttribute('title');
+              if (title) kw.push(title);
+            });
+            if (kw.length > 0) (window as any).__extra_kw = kw;
+          }
+        });
+        extraInfo.source = await handle.evaluate(() => (window as any).__extra_source);
+        extraInfo.questionType = await handle.evaluate(() => (window as any).__extra_qtype);
+        extraInfo.difficulty = await handle.evaluate(() => (window as any).__extra_diff);
+        extraInfo.scoreRate = await handle.evaluate(() => (window as any).__extra_score);
+        extraInfo.knowledgeKeywords = await handle.evaluate(() => (window as any).__extra_kw || []);
+
+        await handle.evaluate(() => {
+          delete (window as any).__extra_source;
+          delete (window as any).__extra_qtype;
+          delete (window as any).__extra_diff;
+          delete (window as any).__extra_score;
+          delete (window as any).__extra_kw;
+        });
+
+        if (extraInfo.source || extraInfo.questionType || extraInfo.difficulty || extraInfo.knowledgeKeywords.length > 0) {
+          logger.log('verbose', `第 ${i + 1}/${count}: 额外信息 — 来源:${extraInfo.source} 题型:${extraInfo.questionType} 难度:${extraInfo.difficulty} 得分率:${extraInfo.scoreRate} 关键词:${extraInfo.knowledgeKeywords.join(',')}`);
+        }
+
         await cntHandle.screenshot({ path: questionPath });
         logger.log('verbose', `第 ${i + 1}/${count}: 题目截图完成`);
 
@@ -138,7 +207,19 @@ export class ScraperEngine {
           if (answerSrc) break;
         }
 
-        tasks.push({ id: taskId, questionPath, answerSrc, answerPath, imagesSrc, imagesPaths });
+        tasks.push({
+          id: taskId,
+          questionPath,
+          answerSrc,
+          answerPath,
+          imagesSrc,
+          imagesPaths,
+          source: extraInfo.source,
+          questionType: extraInfo.questionType,
+          difficulty: extraInfo.difficulty,
+          scoreRate: extraInfo.scoreRate,
+          knowledgeKeywords: extraInfo.knowledgeKeywords,
+        });
 
         if (answerSrc) {
           logger.log('verbose', `第 ${i + 1}/${count}: 答案 URL 已收集`);
@@ -201,6 +282,11 @@ export class ScraperEngine {
       questionPath: t.questionPath,
       answerPath: fs.existsSync(t.answerPath) ? t.answerPath : '',
       images: t.imagesPaths.filter(p => fs.existsSync(p)),
+      ...(t.source ? { source: t.source } : {}),
+      ...(t.questionType ? { questionType: t.questionType } : {}),
+      ...(t.difficulty ? { difficulty: t.difficulty } : {}),
+      ...(t.scoreRate !== undefined ? { scoreRate: t.scoreRate } : {}),
+      knowledgeKeywords: t.knowledgeKeywords,
       timestamp: new Date().toISOString(),
       options: meta,
     }));

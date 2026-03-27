@@ -317,7 +317,7 @@ zujuan-output/
 ├── q_1234567890_1_question.png
 ├── q_1234567890_1_answer.png
 ├── ...
-└── results_1234567890.json         # 汇总结果
+└── results_1234567890.json         # 汇总结果（含每题元数据）
 ```
 
 **JSON 结果格式：**
@@ -332,24 +332,23 @@ zujuan-output/
       "zujuan-output/q_1234567890_0_img_0.png",
       "zujuan-output/q_1234567890_0_img_1.png"
     ],
+    "source": "2024年全国高考甲卷",
+    "questionType": "解答题",
+    "difficulty": "较难",
+    "scoreRate": 0.45,
+    "knowledgeKeywords": ["函数", "单调性", "极值"],
     "timestamp": "2026-03-27T10:30:00.000Z",
     "options": {
       "knowledgeId": "zsd28279",
       "knowledgePoint": "函数的基本概念",
       "grade": "高中",
-      "type": "单选题",
-      "difficulty": "较难",
-      "year": 2025,
-      "order": "最热",
-      "multiCount": 4,
-      "fillCount": 3,
-      "page": 1
+      "order": "最新"
     }
   }
 ]
 ```
 
-> `options` 字段记录本次抓取所使用的筛选条件，`grade`（高中/初中）和 `order`（最新/最热/综合）始终存在，其余字段仅在命令行指定时出现。`year` 为 `-1` 时表示指定了"更早年份"选项。
+> `source`/`questionType`/`difficulty`/`scoreRate`/`knowledgeKeywords` 为每题实际元数据，未获取到时不写入。`options` 记录本次抓取的筛选条件，`grade` 和 `order` 始终存在，其余字段仅在命令行指定时出现。`year` 为 `-1` 时表示指定了"更早年份"选项。
 
 ---
 
@@ -385,6 +384,7 @@ zujuan-output/
 3. 滚动加载所有题目（触发懒加载）
 4. 逐题处理：
    - 滚动到题目位置
+   - 从 `div.ques-additional` 提取每题元数据（来源/题型/难度/得分率/知识点关键词）
    - 收集 `div.exam-item__cnt > p img` 示例图 URL，设为 `hidden`（不占位）
    - 截取 `exam-item__cnt` 区域（仅题目内容，示例图已隐藏）
    - 点击触发答案图片懒加载

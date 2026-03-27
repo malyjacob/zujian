@@ -96,6 +96,11 @@ export interface ScrapeResult {
   questionPath: string;
   answerPath: string;
   images: string[];
+  source?: string;           // 来源
+  questionType?: string;      // 题型
+  difficulty?: string;        // 难度
+  scoreRate?: number;         // 得分率（0~1）
+  knowledgeKeywords: string[]; // 涉及到的知识点关键词列表
   timestamp: string;
   options?: ScrapeMeta;
 }
