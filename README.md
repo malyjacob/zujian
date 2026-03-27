@@ -323,32 +323,44 @@ zujuan-output/
 **JSON 结果格式：**
 
 ```json
-[
-  {
-    "id": "q_1234567890_0",
-    "questionPath": "zujuan-output/q_1234567890_0_question.png",
-    "answerPath": "zujuan-output/q_1234567890_0_answer.png",
-    "images": [
-      "zujuan-output/q_1234567890_0_img_0.png",
-      "zujuan-output/q_1234567890_0_img_1.png"
-    ],
-    "source": "2024年全国高考甲卷",
-    "questionType": "解答题",
-    "difficulty": "较难",
-    "scoreRate": 0.45,
-    "knowledgeKeywords": ["函数", "单调性", "极值"],
-    "timestamp": "2026-03-27T10:30:00.000Z",
-    "options": {
-      "knowledgeId": "zsd28279",
-      "knowledgePoint": "函数的基本概念",
-      "grade": "高中",
-      "order": "最新"
+{
+  "options": {
+    "knowledgeId": "zsd28279",
+    "knowledgePoint": "函数的基本概念",
+    "grade": "高中",
+    "order": "最新"
+  },
+  "results": [
+    {
+      "id": "q_1234567890_0",
+      "questionPath": "zujuan-output/q_1234567890_0_question.png",
+      "answerPath": "zujuan-output/q_1234567890_0_answer.png",
+      "images": [
+        "zujuan-output/q_1234567890_0_img_0.png",
+        "zujuan-output/q_1234567890_0_img_1.png"
+      ],
+      "source": "2024年全国高考甲卷",
+      "questionType": "解答题",
+      "difficulty": "较难",
+      "scoreRate": 0.45,
+      "knowledgeKeywords": ["函数", "单调性", "极值"],
+      "timestamp": "2026-03-27T10:30:00.000Z"
+    },
+    {
+      "id": "q_1234567890_1",
+      "questionPath": "zujuan-output/q_1234567890_1_question.png",
+      "answerPath": "zujuan-output/q_1234567890_1_answer.png",
+      "images": [],
+      "difficulty": "容易",
+      "scoreRate": 0.88,
+      "knowledgeKeywords": ["函数的奇偶性"],
+      "timestamp": "2026-03-27T10:30:02.000Z"
     }
-  }
-]
+  ]
+}
 ```
 
-> `source`/`questionType`/`difficulty`/`scoreRate`/`knowledgeKeywords` 为每题实际元数据，未获取到时不写入。`options` 记录本次抓取的筛选条件，`grade` 和 `order` 始终存在，其余字段仅在命令行指定时出现。`year` 为 `-1` 时表示指定了"更早年份"选项。
+> `options` 为本次抓取的筛选条件，`grade` 和 `order` 始终存在，其余字段仅在命令行指定时出现。`year` 为 `-1` 时表示指定了"更早年份"选项。每题的 `source`/`questionType`/`difficulty`/`scoreRate`/`knowledgeKeywords` 为实际元数据，未获取到时不写入。
 
 ---
 

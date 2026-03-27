@@ -5,7 +5,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { browserManager } from './browser';
 import { logger } from './logger';
-import { ScrapeResult, ScrapeOptions, ScrapeMeta } from '../types';
+import { ScrapeResult, ScrapeOptions, ScrapeMeta, ScrapeOutput } from '../types';
 import { configManager } from './config';
 import { findNodeById, loadKnowledgeTree } from './knowledge-tree';
 
@@ -31,7 +31,7 @@ export class ScraperEngine {
     this.page = await browserManager.getPage();
   }
 
-  async scrape(options: ScrapeOptions): Promise<ScrapeResult[]> {
+  async scrape(options: ScrapeOptions): Promise<ScrapeOutput> {
     logger.setLevel(options.logLevel || 'quiet');
     await this.initialize();
 
@@ -58,6 +58,30 @@ export class ScraperEngine {
       defaultOrder
     );
 
+    // 构建顶层筛选条件（提前构建，无题目时也需返回）
+    const gradeLabel = grade === 'high' ? '高中' : '初中';
+    const tree = loadKnowledgeTree(gradeLabel);
+    const node = findNodeById(tree, knowledge);
+    const knowledgePoint = node?.name || knowledge;
+    const meta: ScrapeMeta = {
+      knowledgeId: knowledge,
+      knowledgePoint,
+      grade: gradeLabel,
+      order: (order ? { latest: '最新', hot: '最热', comprehensive: '综合' }[order] : '最新') as string,
+    };
+    if (type) {
+      const typeMap: Record<string, string> = { t1: '单选题', t2: '多选题', t3: '填空题', t4: '解答题', t5: '判断题', t6: '概念填空' };
+      meta.type = typeMap[type] || type;
+    }
+    if (difficulty) {
+      const diffMap: Record<string, string> = { d1: '容易', d2: '较易', d3: '适中', d4: '较难', d5: '困难' };
+      meta.difficulty = diffMap[difficulty] || difficulty;
+    }
+    if (year !== undefined) meta.year = year;
+    if (multiCount !== undefined) meta.multiCount = multiCount;
+    if (fillCount !== undefined) meta.fillCount = fillCount;
+    if (page !== undefined) meta.page = page;
+
     logger.log('quiet', `正在访问: ${url}`);
     await this.page!.setViewportSize({ width: 1920, height: 1080 });
     await this.page!.goto(url, { waitUntil: 'domcontentloaded' });
@@ -83,7 +107,7 @@ export class ScraperEngine {
       logger.log('normal', `页面已保存到: ${htmlPath}`);
       logger.log('normal', `未找到任何题目，请检查页面结构`);
       await browserManager.close();
-      return [];
+      return { options: meta, results: [] };
     }
 
     logger.log('normal', `共找到 ${totalQuestions} 个题目，准备抓取 ${count} 道`);
@@ -253,30 +277,6 @@ export class ScraperEngine {
     await Promise.all(imageDownloadPromises);
 
     // 第四步：构建结果
-    const gradeLabel = grade === 'high' ? '高中' : '初中';
-    const tree = loadKnowledgeTree(gradeLabel);
-    const node = findNodeById(tree, knowledge);
-    const knowledgePoint = node?.name || knowledge;
-
-    const meta: ScrapeMeta = {
-      knowledgeId: knowledge,
-      knowledgePoint,
-      grade: gradeLabel,
-      order: (order ? { latest: '最新', hot: '最热', comprehensive: '综合' }[order] : '最新') as string,
-    };
-    if (type) {
-      const typeMap: Record<string, string> = { t1: '单选题', t2: '多选题', t3: '填空题', t4: '解答题', t5: '判断题', t6: '概念填空' };
-      meta.type = typeMap[type] || type;
-    }
-    if (difficulty) {
-      const diffMap: Record<string, string> = { d1: '容易', d2: '较易', d3: '适中', d4: '较难', d5: '困难' };
-      meta.difficulty = diffMap[difficulty] || difficulty;
-    }
-    if (year !== undefined) meta.year = year;
-    if (multiCount !== undefined) meta.multiCount = multiCount;
-    if (fillCount !== undefined) meta.fillCount = fillCount;
-    if (page !== undefined) meta.page = page;
-
     const results: ScrapeResult[] = tasks.map((t) => ({
       id: t.id,
       questionPath: t.questionPath,
@@ -288,11 +288,11 @@ export class ScraperEngine {
       ...(t.scoreRate !== undefined ? { scoreRate: t.scoreRate } : {}),
       knowledgeKeywords: t.knowledgeKeywords,
       timestamp: new Date().toISOString(),
-      options: meta,
     }));
 
+    const output: ScrapeOutput = { options: meta, results };
     const jsonPath = path.join(outputDir, `results_${Date.now()}.json`);
-    fs.writeFileSync(jsonPath, JSON.stringify(results, null, 2), 'utf-8');
+    fs.writeFileSync(jsonPath, JSON.stringify(output, null, 2), 'utf-8');
     logger.log('quiet', `结果已保存到: ${jsonPath}`);
 
     await browserManager.close();

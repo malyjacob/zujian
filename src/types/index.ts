@@ -102,7 +102,12 @@ export interface ScrapeResult {
   scoreRate?: number;         // 得分率（0~1）
   knowledgeKeywords: string[]; // 涉及到的知识点关键词列表
   timestamp: string;
-  options?: ScrapeMeta;
+}
+
+// 抓取结果（包含顶层筛选条件 + 结果列表）
+export interface ScrapeOutput {
+  options: ScrapeMeta;
+  results: ScrapeResult[];
 }
 
 // 浏览器状态

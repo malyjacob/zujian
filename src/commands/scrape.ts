@@ -68,8 +68,8 @@ export function createScrapeCommand(): Command {
       logger.log('normal', `限制数量: ${scrapeOptions.limit}`);
 
       try {
-        const results = await scraperEngine.scrape(scrapeOptions);
-        logger.log('normal', `抓取完成，共 ${results.length} 道题目`);
+        const output = await scraperEngine.scrape(scrapeOptions);
+        logger.log('normal', `抓取完成，共 ${output.results.length} 道题目`);
       } catch (error) {
         logger.error('抓取失败:', error);
       }
