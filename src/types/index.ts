@@ -78,12 +78,24 @@ export interface ScrapeOptions {
 }
 
 // 抓取结果
+export interface ScrapeMeta {
+  grade?: string;        // 年级段：高中/初中
+  type?: string;         // 题型：单选题/多选题/填空题/解答题
+  difficulty?: string;   // 难度：容易/较易/适中/较难/困难
+  year?: number;         // 年份
+  order?: string;        // 排序方式：最新/最热/综合
+  multiCount?: number;   // 多选题答案数量
+  fillCount?: number;    // 填空题空数
+  page?: number;         // 分页页码
+}
+
 export interface ScrapeResult {
   id: string;
   questionPath: string;
   answerPath: string;
   images: string[];
   timestamp: string;
+  options?: ScrapeMeta;
 }
 
 // 浏览器状态

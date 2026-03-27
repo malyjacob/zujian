@@ -332,12 +332,22 @@ zujuan-output/
       "zujuan-output/q_1234567890_0_img_0.png",
       "zujuan-output/q_1234567890_0_img_1.png"
     ],
-    "timestamp": "2026-03-27T10:30:00.000Z"
+    "timestamp": "2026-03-27T10:30:00.000Z",
+    "options": {
+      "grade": "高中",
+      "type": "单选题",
+      "difficulty": "较难",
+      "year": 2025,
+      "order": "最热",
+      "multiCount": 4,
+      "fillCount": 3,
+      "page": 1
+    }
   }
 ]
 ```
 
-> `images` 数组保存题目中附带的所有示例图路径，无示例图时为空数组 `[]`。示例图在截图前通过 `hidden` 属性隐藏，题目截图中不包含图片。
+> `options` 字段记录本次抓取所使用的筛选条件（仅包含命令行指定的选项），全部使用中文名称。无可用选项时该字段不出现。
 
 ---
 

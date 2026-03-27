@@ -5,7 +5,7 @@ import * as https from 'https';
 import * as http from 'http';
 import { browserManager } from './browser';
 import { logger } from './logger';
-import { ScrapeResult, ScrapeOptions } from '../types';
+import { ScrapeResult, ScrapeOptions, ScrapeMeta } from '../types';
 import { configManager } from './config';
 
 interface QuestionTask {
@@ -171,12 +171,32 @@ export class ScraperEngine {
     await Promise.all(imageDownloadPromises);
 
     // 第四步：构建结果
+    const meta: ScrapeMeta = {};
+    if (grade) meta.grade = grade === 'high' ? '高中' : '初中';
+    if (type) {
+      const typeMap: Record<string, string> = { t1: '单选题', t2: '多选题', t3: '填空题', t4: '解答题', t5: '判断题', t6: '概念填空' };
+      meta.type = typeMap[type] || type;
+    }
+    if (difficulty) {
+      const diffMap: Record<string, string> = { d1: '容易', d2: '较易', d3: '适中', d4: '较难', d5: '困难' };
+      meta.difficulty = diffMap[difficulty] || difficulty;
+    }
+    if (year) meta.year = year;
+    if (order) {
+      const orderMap: Record<string, string> = { latest: '最新', hot: '最热', comprehensive: '综合' };
+      meta.order = orderMap[order] || order;
+    }
+    if (multiCount !== undefined) meta.multiCount = multiCount;
+    if (fillCount !== undefined) meta.fillCount = fillCount;
+    if (page !== undefined) meta.page = page;
+
     const results: ScrapeResult[] = tasks.map((t) => ({
       id: t.id,
       questionPath: t.questionPath,
       answerPath: fs.existsSync(t.answerPath) ? t.answerPath : '',
       images: t.imagesPaths.filter(p => fs.existsSync(p)),
       timestamp: new Date().toISOString(),
+      ...(Object.keys(meta).length > 0 ? { options: meta } : {}),
     }));
 
     const jsonPath = path.join(outputDir, `results_${Date.now()}.json`);
