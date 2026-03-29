@@ -25,6 +25,8 @@ export interface KnowledgeNodeRow {
   parent_id: string | null;
   grade: 'high' | 'middle';
   level: number;
+  /** 在原文件中的行号位置，用于同层节点排序 */
+  pos: number;
 }
 
 export interface NodeWithLevel {
@@ -58,7 +60,8 @@ function getDb(): Database.Database {
         name      TEXT NOT NULL,
         parent_id TEXT,
         grade     TEXT NOT NULL,
-        level     INTEGER NOT NULL DEFAULT 0
+        level     INTEGER NOT NULL DEFAULT 0,
+        pos       INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_parent ON knowledge_nodes(parent_id);
       CREATE INDEX IF NOT EXISTS idx_grade  ON knowledge_nodes(grade);
@@ -111,32 +114,35 @@ export function importTreeFromFile(grade: 'high' | 'middle'): number {
   database.prepare('DELETE FROM knowledge_nodes WHERE grade = ?').run(grade);
 
   const insert = database.prepare(
-    'INSERT INTO knowledge_nodes (id, name, parent_id, grade, level) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO knowledge_nodes (id, name, parent_id, grade, level, pos) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
   const insertAll = database.transaction((nodes: KnowledgeNodeRow[]) => {
-    for (const n of nodes) insert.run(n.id, n.name, n.parent_id, n.grade, n.level);
+    for (const n of nodes) insert.run(n.id, n.name, n.parent_id, n.grade, n.level, n.pos);
   });
 
   // 解析并构建带层级的节点列表
   const parsed: { name: string; id: string; level: number }[] = [];
+  let lineIndex = 0;
   for (const line of lines) {
     const node = parseNodeLine(line);
     if (!node) continue;
     const level = Math.floor((line.search(/\S/) || 0) / 2);
     parsed.push({ ...node, level });
+    lineIndex++;
   }
 
-  // 建立父子关系
+  // 建立父子关系，同时记录行号位置（用于同层排序）
   const rows: KnowledgeNodeRow[] = [];
   const stack: { id: string; level: number }[] = [];
 
-  for (const p of parsed) {
+  for (let idx = 0; idx < parsed.length; idx++) {
+    const p = parsed[idx];
     while (stack.length > 0 && stack[stack.length - 1].level >= p.level) {
       stack.pop();
     }
     const parent_id = stack.length > 0 ? stack[stack.length - 1].id : null;
-    rows.push({ id: p.id, name: p.name, parent_id, grade, level: p.level });
+    rows.push({ id: p.id, name: p.name, parent_id, grade, level: p.level, pos: idx });
     stack.push({ id: p.id, level: p.level });
   }
 
@@ -197,7 +203,7 @@ export function getDescendants(
 
     const placeholders = parentIds.map(() => '?').join(',');
     const rows = database
-      .prepare(`SELECT * FROM knowledge_nodes WHERE parent_id IN (${placeholders}) AND grade = ?`)
+      .prepare(`SELECT * FROM knowledge_nodes WHERE parent_id IN (${placeholders}) AND grade = ? ORDER BY pos`)
       .all(...parentIds, grade) as KnowledgeNodeRow[];
 
     if (rows.length === 0) break;
@@ -238,7 +244,7 @@ export function getDescendantsFromRoots(
   if (!searchTerm) {
     if (maxDepth === -1) {
       const all = database
-        .prepare('SELECT * FROM knowledge_nodes WHERE grade = ? ORDER BY level, id')
+        .prepare('SELECT * FROM knowledge_nodes WHERE grade = ? ORDER BY level, pos')
         .all(grade) as KnowledgeNodeRow[];
       return all.map((node) => ({ node, level: node.level + 1 }));
     }
@@ -246,7 +252,7 @@ export function getDescendantsFromRoots(
     if (maxDepth === 0) return [];
 
     const roots = database
-      .prepare('SELECT * FROM knowledge_nodes WHERE parent_id IS NULL AND grade = ?')
+      .prepare('SELECT * FROM knowledge_nodes WHERE parent_id IS NULL AND grade = ? ORDER BY pos')
       .all(grade) as KnowledgeNodeRow[];
 
     const results: NodeWithLevel[] = [];
@@ -260,7 +266,7 @@ export function getDescendantsFromRoots(
       if (parentIds.length === 0) break;
       const placeholders = parentIds.map(() => '?').join(',');
       const rows = database
-        .prepare(`SELECT * FROM knowledge_nodes WHERE parent_id IN (${placeholders}) AND grade = ?`)
+        .prepare(`SELECT * FROM knowledge_nodes WHERE parent_id IN (${placeholders}) AND grade = ? ORDER BY pos`)
         .all(...parentIds, grade) as KnowledgeNodeRow[];
       if (rows.length === 0) break;
       for (const row of rows) results.push({ node: row, level: depth });
@@ -288,7 +294,7 @@ export function getDescendantsFromRoots(
       SELECT id, name, parent_id, grade, level, display_level
       FROM chain
       WHERE name LIKE ? ${maxDepthCond}
-      ORDER BY display_level, id
+      ORDER BY display_level, pos
     `)
     .all(grade, grade, `%${lower}%`) as (KnowledgeNodeRow & { display_level: number })[];
 
@@ -330,9 +336,48 @@ export function searchNodes(
     .all(`%${lower}%`, grade) as KnowledgeNodeRow[];
 }
 
-/** 打印带层级的节点列表 */
+/** 打印带层级的节点列表（平铺，按层级分组） */
 export function printNodesWithLevels(nodesWithLevels: NodeWithLevel[]): void {
   for (const { node, level } of nodesWithLevels) {
     console.log(`${'  '.repeat(level - 1)}• ${node.name} (${node.id})`);
+  }
+}
+
+/**
+ * 按树结构递归打印（仅限无搜索词场景）。
+ * 将平铺的 BFS 结果重建为树，保持父→子→孙 的层级缩进和原始同层顺序。
+ * @param nodesWithLevels  由 getDescendantsFromRoots / getDescendants 返回的扁平结果
+ * @param maxDisplayLevel 最大打印深度（-1=不限）
+ */
+export function printTree(nodesWithLevels: NodeWithLevel[], maxDisplayLevel: number = -1): void {
+  // 第一遍：建立 parent_id → children[] 的映射（children 按 pos 排序）
+  const childrenMap = new Map<string | null, KnowledgeNodeRow[]>();
+
+  for (const { node } of nodesWithLevels) {
+    const siblings = childrenMap.get(node.parent_id) ?? [];
+    siblings.push(node);
+    childrenMap.set(node.parent_id, siblings);
+  }
+
+  // 按 pos 排序（同层原始顺序）
+  for (const [, siblings] of childrenMap) {
+    siblings.sort((a, b) => a.pos - b.pos);
+  }
+
+  // 第二遍：递归打印，depth 从 1 开始（根=1）
+  const roots = childrenMap.get(null) ?? [];
+
+  function printChildren(parentId: string | null, depth: number): void {
+    const children = childrenMap.get(parentId) ?? [];
+    for (const child of children) {
+      if (maxDisplayLevel !== -1 && depth > maxDisplayLevel) break;
+      console.log(`${'  '.repeat(depth - 1)}• ${child.name} (${child.id})`);
+      printChildren(child.id, depth + 1);
+    }
+  }
+
+  for (const root of roots) {
+    console.log(`${'  '.repeat(0)}• ${root.name} (${root.id})`);
+    printChildren(root.id, 2);
   }
 }

@@ -7,6 +7,7 @@ import {
   getDescendantsFromRoots,
   getNodePath,
   printNodesWithLevels,
+  printTree,
 } from '../lib/knowledge-tree-sqlite';
 import { configManager } from '../lib/config';
 
@@ -47,7 +48,7 @@ export function createListCommand(): Command {
       }
 
       if (options.tree) {
-        // --tree: 从根节点开始，无限深度
+        // --tree: 从根节点开始，无限深度查询，按 treeDepth 控制打印深度
         const depth = configManager.get('treeDepth');
         const nodes = getDescendantsFromRoots(-1, undefined, grade);
         if (nodes.length === 0) {
@@ -55,7 +56,7 @@ export function createListCommand(): Command {
           return;
         }
         console.log(`${treeName}数学知识点树:\n`);
-        printNodesWithLevels(nodes);
+        printTree(nodes, depth);
         return;
       }
 
@@ -87,7 +88,7 @@ export function createListCommand(): Command {
         }
 
         console.log(`\n子孙节点 (${descendants.length}个, 深度${depth === -1 ? '不限' : `≤${depth}`}):`);
-        printNodesWithLevels(descendants);
+        printTree(descendants, depth);
         return;
       }
 
@@ -110,7 +111,7 @@ export function createListCommand(): Command {
         return;
       }
       console.log(`${treeName}数学知识点 (深度${depth === -1 ? '不限' : depth}):\n`);
-      printNodesWithLevels(nodes);
+      printTree(nodes, depth);
       return;
     });
 
