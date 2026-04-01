@@ -22,3 +22,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Lock# package-lock.json
+package-lock.json
