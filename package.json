@@ -10,7 +10,7 @@
     "build": "tsc",
     "start": "NODE_OPTIONS='--no-deprecation' node ./dist/index.js",
     "dev": "ts-node src/index.ts",
-    "postinstall": "node -e \"const fs=require('fs'),path=require('path'),os=require('os');const dir=path.join(os.homedir(),'.zujuan-scraper');if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});['KNOWLEDGE_TREE_HIGH.txt','KNOWLEDGE_TREE_MIDDLE.txt'].forEach(f=>{const src=path.join(process.cwd(),f);if(fs.existsSync(src))fs.copyFileSync(src,path.join(dir,f));});\""
+    "postinstall": "node -e \"const fs=require('fs'),path=require('path'),os=require('os');const pkgDir=path.dirname(require.resolve('./package.json'));const destDir=path.join(os.homedir(),'.zujuan-scraper');if(!fs.existsSync(destDir))fs.mkdirSync(destDir,{recursive:true});['KNOWLEDGE_TREE_HIGH.txt','KNOWLEDGE_TREE_MIDDLE.txt'].forEach(f=>{const src=path.join(pkgDir,f);const dst=path.join(destDir,f);if(fs.existsSync(src)){fs.copyFileSync(src,dst);console.log('[postinstall] copied:',f);}else{console.error('[postinstall] 文件不存在，跳过:', src);}});\""
   },
   "keywords": [
     "crawler",

@@ -29,13 +29,18 @@ export function createListCommand(): Command {
 
       // --refresh：强制重建数据库
       if (options.refresh) {
+        let highCount = 0, middleCount = 0;
         try {
-          const highCount = importTreeFromFile('high');
-          const middleCount = importTreeFromFile('middle');
-          console.log(`数据库已重建：高中 ${highCount} 条，初中 ${middleCount} 条`);
+          highCount = importTreeFromFile('high');
         } catch (e: any) {
-          console.log(`重建失败: ${e.message}`);
+          console.error(`[list --refresh] 高中树导入失败: ${e.message}`);
         }
+        try {
+          middleCount = importTreeFromFile('middle');
+        } catch (e: any) {
+          console.error(`[list --refresh] 初中树导入失败: ${e.message}`);
+        }
+        console.log(`数据库已重建：高中 ${highCount} 条，初中 ${middleCount} 条`);
         return;
       }
 
