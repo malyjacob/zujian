@@ -11,9 +11,24 @@ function getDbPath(): string {
   return path.join(getConfigDir(), 'knowledge-tree.db');
 }
 
-/** 获取知识树文件所在目录（固定在配置目录 ~/.zujuan-scraper/） */
+/** 获取知识树文件所在目录（固定在配置目录 ~/.zujuan-scraper/）
+ *  路径统一用正斜杠，解决 Windows 下 slash/backslash 不一致导致 needsRebuild() 误判 */
 function getTreeDir(): string {
-  return getConfigDir();
+  return getConfigDir().replace(/\\/g, '/');
+}
+
+/** 查找树文件路径：依次尝试配置目录和项目目录（兼容 Windows 下 npm 安装后文件位置不一致的情况） */
+function resolveTreeFilePath(grade: 'high' | 'middle'): string | null {
+  const gradeMap = { high: 'KNOWLEDGE_TREE_HIGH.txt', middle: 'KNOWLEDGE_TREE_MIDDLE.txt' };
+  const fileName = gradeMap[grade];
+  const candidates = [
+    path.join(getTreeDir(), fileName).replace(/\\/g, '/'),
+    path.join(process.cwd(), fileName).replace(/\\/g, '/'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 let db: Database.Database | null = null;
@@ -81,15 +96,26 @@ function _getDb(): Database.Database {
   return db;
 }
 
-/** 检查数据库的元数据，决定是否需要重建 */
+/** 检查数据库的元数据，决定是否需要重建
+ *  触发重建的条件：目录路径变更 OR 数据库为空（兜底所有初始化失败的情况） */
 function needsRebuild(): boolean {
   const database = _getDb();
   const row = database.prepare('SELECT value FROM meta WHERE key = ?').get('tree_dir') as
     | { value: string }
     | undefined;
-  const storedDir = row?.value || '';
+  const storedDir = (row?.value || '').replace(/\\/g, '/');
   const currentDir = getTreeDir();
-  return storedDir !== currentDir;
+
+  // 路径不一致 → 需要重建
+  if (storedDir !== currentDir) return true;
+
+  // 路径一致但表里没数据 → 也要重建（兜底）
+  const count = (
+    database
+      .prepare('SELECT COUNT(*) as c FROM knowledge_nodes')
+      .get() as { c: number }
+  ).c;
+  return count === 0;
 }
 
 function parseNodeLine(line: string): { name: string; id: string } | null {
@@ -99,8 +125,14 @@ function parseNodeLine(line: string): { name: string; id: string } | null {
 }
 
 function getFilePath(grade: 'high' | 'middle'): string {
-  const gradeMap = { high: 'KNOWLEDGE_TREE_HIGH.txt', middle: 'KNOWLEDGE_TREE_MIDDLE.txt' };
-  return path.join(getTreeDir(), gradeMap[grade]);
+  const resolved = resolveTreeFilePath(grade);
+  if (!resolved) {
+    throw new Error(
+      `知识树文件不存在，请确认 KNOWLEDGE_TREE_${grade === 'high' ? 'HIGH' : 'MIDDLE'}.txt ` +
+        `位于以下目录之一：${getTreeDir()} 或 ${process.cwd()}`
+    );
+  }
+  return resolved;
 }
 
 /** 从文本文件导入知识点到数据库（幂等：先删除同名表数据再插入） */
@@ -161,13 +193,18 @@ export function importTreeFromFile(grade: 'high' | 'middle'): number {
   return rows.length;
 }
 
-/** 初始化数据库：文件不存在则自动创建，已存在则检查目录是否变更 */
+/** 初始化数据库：文件不存在则自动创建，已存在则检查目录是否变更或数据是否为空 */
 export function ensureDatabase(): void {
-  if (db && !needsRebuild()) return; // DB 已存在且目录未变，直接复用
+  if (db && !needsRebuild()) return; // DB 已存在且无需重建，直接复用
   _getDb();
   if (needsRebuild()) {
-    importTreeFromFile('high');
-    importTreeFromFile('middle');
+    try {
+      importTreeFromFile('high');
+      importTreeFromFile('middle');
+    } catch (e: any) {
+      // 导入失败（如文件缺失）不阻塞程序，保留空库；下次调用时 needsRebuild() 会再次尝试
+      console.error(`[knowledge-tree] 初始化数据库失败: ${e.message}`);
+    }
   }
 }
 
