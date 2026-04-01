@@ -125,18 +125,25 @@ export class ScraperEngine {
         await handle.evaluate(el => el.scrollIntoView({ behavior: 'instant', block: 'start' }));
 
         // 收集示例图 URL 并隐藏，不占位
-        const imagesSrc: string[] = [];
+        let imagesSrc: string[] = [];
         const imagesPaths: string[] = [];
-        await handle.evaluate((el, _imagesSrc: string[]) => {
+        
+        imagesSrc = await handle.evaluate((el) => {
           const imgs = el.querySelectorAll('div.wrapper > div.exam-item__cnt > p img');
+          const srcs: string[] = [];
+        
           imgs.forEach((img) => {
-            const src = (img as HTMLImageElement).src;
+            const imgEl = img as HTMLImageElement;
+            const { src } = imgEl;
             if (src) {
-              _imagesSrc.push(src);
-              (img as HTMLImageElement).setAttribute('hidden', '');
+              srcs.push(src);
+              imgEl.setAttribute('hidden', '');
             }
           });
-        }, imagesSrc);
+        
+          return srcs;
+        });
+        
         if (imagesSrc.length > 0) {
           for (let j = 0; j < imagesSrc.length; j++) {
             imagesPaths.push(path.join(outputDir, `${taskId}_img_${j}.png`));
