@@ -14,6 +14,8 @@ export interface ConfigOptions {
   visionApiKey?: string;
   visionModel?: string;
   visionEnabled?: boolean;
+  // 导出格式选项
+  exportFormat?: ExportFormat;
   // 隐藏选项（代码内部使用，不暴露给 config 命令）
   cookie?: string;
   browserPort?: number;
@@ -37,6 +39,8 @@ export interface Config {
   visionApiKey: string;
   visionModel: string;
   visionEnabled: boolean;
+  // 导出格式选项
+  exportFormat: ExportFormat;
   // 隐藏选项
   cookie: string;
   browserPort: number;
@@ -58,6 +62,12 @@ export type Year = 2023 | 2024 | 2025 | 2026 | -1;
 
 // 年级: high=高中, middle=初中
 export type Grade = 'high' | 'middle';
+
+// 导出格式: html=HTML, markdown=Markdown, both=两者都生成
+export type ExportFormat = 'html' | 'markdown' | 'both';
+
+// 导出主题: light=白底黑字, dark=深色, sepia=护眼米黄
+export type ExportTheme = 'light' | 'dark' | 'sepia';
 
 // 排序方式: latest=最新(o2), hot=最热(o4), comprehensive=综合(o0)
 export type Order = 'latest' | 'hot' | 'comprehensive';
@@ -94,8 +104,9 @@ export interface ScrapeOptions {
 
 // 抓取结果
 export interface ScrapeMeta {
-  knowledgeId: string;    // 知识点节点ID
-  knowledgePoint: string;  // 知识点名称
+  timestamp: string;        // 目录名，本次抓取的输出目录（必填）
+  knowledgeId: string;      // 知识点节点ID
+  knowledgePoint: string;   // 知识点名称
   grade: string;          // 年级段：高中/初中（必填）
   type?: string;         // 题型：单选题/多选题/填空题/解答题
   difficulty?: string;   // 难度：容易/较易/适中/较难/困难
@@ -108,7 +119,8 @@ export interface ScrapeMeta {
 
 export interface ScrapeResult {
   id: string;
-  questionPath: string;
+  index: string;            // 题目序号（补零对齐，如 "001"）
+  questionPath: string;    // 相对于 {timestamp}/ 目录的路径，如 "001/question.png"
   answerPath: string;
   images: string[];
   source?: string;           // 来源

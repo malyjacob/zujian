@@ -4,6 +4,23 @@ import { configManager } from './config';
 import { logger } from './logger';
 
 export class VisionOCRProcessor {
+  /** 根据 API URL 构建 OpenAI 客户端，OpenRouter 需要额外头 */
+  private buildClient(apiUrl: string, apiKey: string): OpenAI {
+    const isOpenRouter = apiUrl.includes('openrouter.ai');
+    const options: ConstructorParameters<typeof OpenAI>[0] = {
+      apiKey,
+      baseURL: apiUrl,
+      timeout: 30_000,
+    };
+    if (isOpenRouter) {
+      options.defaultHeaders = {
+        'HTTP-Referer': 'https://zujuan.xkw.com',
+        'X-OpenRouter-Title': 'Zujuan Scraper',
+      };
+    }
+    return new OpenAI(options);
+  }
+
   /** 将图片文件转为 base64 */
   private imageToBase64(imagePath: string): string {
     const buffer = fs.readFileSync(imagePath);
@@ -44,7 +61,7 @@ export class VisionOCRProcessor {
     const base64Data = this.imageToBase64(imagePath);
     const mimeType = this.getMimeType(imagePath);
 
-    const client = new OpenAI({ apiKey, baseURL: apiUrl });
+    const client = this.buildClient(apiUrl, apiKey);
 
     const response = await client.chat.completions.create({
       model,
@@ -93,7 +110,7 @@ export class VisionOCRProcessor {
     const base64Data = this.imageToBase64(imagePath);
     const mimeType = this.getMimeType(imagePath);
 
-    const client = new OpenAI({ apiKey, baseURL: apiUrl });
+    const client = this.buildClient(apiUrl, apiKey);
 
     const response = await client.chat.completions.create({
       model,

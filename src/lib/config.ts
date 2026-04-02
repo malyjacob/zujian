@@ -134,6 +134,7 @@ function buildDefaultConfig(): Config {
     visionApiKey: '',
     visionModel: '',
     visionEnabled: false,
+    exportFormat: 'html',
     cookie: '',
     browserPort: 9222,
     headless: false,
@@ -163,6 +164,7 @@ export class ConfigManager {
           'browserDir', 'loginQrDir', 'logDir', 'treeDb',
           'grade', 'order', 'treeDepth', 'logLevel',
           'visionApiUrl', 'visionApiKey', 'visionModel', 'visionEnabled',
+          'exportFormat',
           'cookie', 'browserPort', 'headless', 'logEnabled',
         ];
         const merged = { ...defaults };
@@ -229,6 +231,7 @@ export class ConfigManager {
     if (options.visionApiKey !== undefined) this.config.visionApiKey = options.visionApiKey;
     if (options.visionModel !== undefined) this.config.visionModel = options.visionModel;
     if (options.visionEnabled !== undefined) this.config.visionEnabled = options.visionEnabled;
+    if (options.exportFormat !== undefined) this.config.exportFormat = options.exportFormat;
     if (options.cookie !== undefined) this.config.cookie = options.cookie;
     if (options.browserPort !== undefined) this.config.browserPort = options.browserPort;
     if (options.headless !== undefined) this.config.headless = options.headless;

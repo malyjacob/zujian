@@ -19,6 +19,7 @@ export function createConfigCommand(): Command {
     .option('--vision-api-key <key>', '设置视觉模型 API Key')
     .option('--vision-model <model>', '设置视觉模型名称/ID（如 deepseek-chat）')
     .option('--vision-enabled', '启用视觉 OCR')
+    .option('--export-format <format>', '设置导出格式: html / markdown / both')
     .action((options) => {
       // --reset：删除配置，恢复默认值
       if (options.reset) {
@@ -41,7 +42,8 @@ export function createConfigCommand(): Command {
         options.visionApiUrl ||
         options.visionApiKey ||
         options.visionModel ||
-        options.visionEnabled;
+        options.visionEnabled ||
+        options.exportFormat;
 
       if (!anyOptionProvided) {
         // 无参数：显示当前配置
@@ -65,6 +67,7 @@ export function createConfigCommand(): Command {
         visionApiKey: options.visionApiKey,
         visionModel: options.visionModel,
         visionEnabled: options.visionEnabled,
+        exportFormat: options.exportFormat as 'html' | 'markdown' | 'both' | undefined,
       });
 
       console.log('配置已更新');

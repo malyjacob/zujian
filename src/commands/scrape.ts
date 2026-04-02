@@ -1,7 +1,10 @@
 import { Command } from 'commander';
+import * as path from 'path';
 import { scraperEngine } from '../lib/scraper';
 import { configManager } from '../lib/config';
 import { logger } from '../lib/logger';
+import { htmlExporter } from '../lib/exporters/html-exporter';
+import { markdownExporter } from '../lib/exporters/markdown-exporter';
 import {
   ScrapeOptions,
   QuestionType,
@@ -10,6 +13,8 @@ import {
   Grade,
   Order,
   LogLevel,
+  ScrapeOutput,
+  ExportTheme,
 } from '../types';
 
 export function createScrapeCommand(): Command {
@@ -28,6 +33,9 @@ export function createScrapeCommand(): Command {
     .option('-fc, --fill-count <number>', '填空题空数: 1, 2, 3及以上')
     .option('-p, --page <number>', '分页页码（默认1，第二页起为o2p2格式）')
     .option('-ll, --log-level <level>', '日志级别: quiet=纯净 normal=普通 verbose=详细（默认: quiet）')
+    .option('-e, --export', '抓取完成后导出为 HTML 或 Markdown 文档')
+    .option('--format <formats>', '导出格式: html / markdown / both（逗号分隔，默认使用配置或 headless 推导）')
+    .option('--theme <theme>', '导出主题: light(白底) / dark(深色) / sepia(米黄)，默认使用配置或 light')
     .action(async (options) => {
       const limit = Math.min(10, Math.max(1, parseInt(options.limit) || 10));
       // 年级：命令行指定优先，否则使用配置默认值
@@ -68,10 +76,71 @@ export function createScrapeCommand(): Command {
       try {
         const output = await scraperEngine.scrape(scrapeOptions);
         logger.log('normal', `抓取完成，共 ${output.results.length} 道题目`);
+
+        if (options.export && output.results.length > 0) {
+          await runExport(output, options);
+        }
+
+        process.exit(0);
       } catch (error) {
         logger.error('抓取失败:', error);
+        process.exit(1);
       }
     });
 
   return command;
+
+  /** 根据参数/配置决定导出格式和主题，并执行 */
+  async function runExport(output: ScrapeOutput, opts: { format?: string; theme?: string }): Promise<void> {
+    // format：命令行 > config > headless 推导 > 默认 html
+    let fmt: 'html' | 'markdown' | 'both' = 'html';
+    if (opts.format) {
+      const parts = (opts.format as string).split(',').map(s => s.trim());
+      if (parts.includes('html') && parts.includes('markdown')) {
+        fmt = 'both';
+      } else if (parts.includes('markdown')) {
+        fmt = 'markdown';
+      } else if (parts.includes('both')) {
+        fmt = 'both';
+      }
+    } else {
+      const cfgFmt = configManager.get('exportFormat');
+      if (cfgFmt) {
+        fmt = cfgFmt;
+      } else {
+        const headless = configManager.get('headless');
+        fmt = headless ? 'markdown' : 'html';
+      }
+    }
+
+    // theme：命令行 > 默认 light
+    const theme: ExportTheme = (['dark', 'sepia'].includes(opts.theme as string) ? opts.theme : 'light') as ExportTheme;
+
+    const batchDir = path.resolve('./zujuan-output', output.options.timestamp);
+    const { options: meta, results } = output;
+
+    let htmlCount = 0, mdCount = 0, zipCount = 0;
+
+    for (const result of results) {
+      if (fmt === 'html' || fmt === 'both') {
+        htmlExporter.export(batchDir, result, theme);
+        logger.log('normal', `  ✓ ${result.index}/index.html`);
+        htmlCount++;
+      }
+      if (fmt === 'markdown' || fmt === 'both') {
+        markdownExporter.export(batchDir, result, meta);
+        logger.log('normal', `  ✓ ${result.index}/index.md`);
+        mdCount++;
+        try {
+          await markdownExporter.packZip(batchDir, result);
+          logger.log('normal', `  ✓ ${result.index}.zip`);
+          zipCount++;
+        } catch (err) {
+          logger.error(`  ✗ ${result.index}.zip 打包失败:`, err);
+        }
+      }
+    }
+
+    logger.log('normal', `导出完成: ${htmlCount} HTML, ${mdCount} Markdown, ${zipCount} ZIP`);
+  }
 }

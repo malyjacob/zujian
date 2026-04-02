@@ -11,6 +11,7 @@ import { findNodeById, loadKnowledgeTree } from './knowledge-tree';
 
 interface QuestionTask {
   id: string;
+  index: string;
   questionPath: string;
   answerSrc: string | null;
   answerPath: string;
@@ -66,6 +67,7 @@ export class ScraperEngine {
     const node = findNodeById(tree, knowledge);
     const knowledgePoint = node?.name || knowledge;
     const meta: ScrapeMeta = {
+      timestamp: '',
       knowledgeId: knowledge,
       knowledgePoint,
       grade: gradeLabel,
@@ -99,9 +101,12 @@ export class ScraperEngine {
     await this.scrollToLoadQuestions();
 
     const outputDir = path.resolve('./zujuan-output');
+    const timestamp = Date.now().toString();
+    const batchDir = path.join(outputDir, timestamp);
+    meta.timestamp = timestamp;
 
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    if (!fs.existsSync(batchDir)) {
+      fs.mkdirSync(batchDir, { recursive: true });
     }
 
     logger.log('verbose', `页面标题: ${await this.page!.title()}`);
@@ -111,7 +116,7 @@ export class ScraperEngine {
     const count = Math.min(totalQuestions, limit);
 
     if (totalQuestions === 0) {
-      const htmlPath = path.join(outputDir, `page_debug_${Date.now()}.html`);
+      const htmlPath = path.join(batchDir, `page_debug.html`);
       fs.writeFileSync(htmlPath, await this.page!.content(), 'utf-8');
       logger.log('normal', `页面已保存到: ${htmlPath}`);
       logger.log('normal', `未找到任何题目，请检查页面结构`);
@@ -120,14 +125,21 @@ export class ScraperEngine {
     }
 
     logger.log('normal', `共找到 ${totalQuestions} 个题目，准备抓取 ${count} 道`);
+    logger.log('quiet', `输出目录: ${batchDir}`);
 
     // 第一步：逐题截图并收集答案 URL
     const tasks: QuestionTask[] = [];
 
     for (let i = 0; i < count; i++) {
-      const taskId = `q_${Date.now()}_${i}`;
-      const questionPath = path.join(outputDir, `${taskId}_question.png`);
-      const answerPath = path.join(outputDir, `${taskId}_answer.png`);
+      const indexStr = (i + 1).toString().padStart(3, '0');
+      const questionDir = path.join(batchDir, indexStr);
+      if (!fs.existsSync(questionDir)) {
+        fs.mkdirSync(questionDir, { recursive: true });
+      }
+
+      const taskId = `q_${timestamp}_${i}`;
+      const questionPath = path.join(questionDir, 'question.png');
+      const answerPath = path.join(questionDir, 'answer.png');
       const handle = questionHandles[i];
 
       try {
@@ -155,7 +167,7 @@ export class ScraperEngine {
         
         if (imagesSrc.length > 0) {
           for (let j = 0; j < imagesSrc.length; j++) {
-            imagesPaths.push(path.join(outputDir, `${taskId}_img_${j}.png`));
+            imagesPaths.push(path.join(questionDir, `img_${j}.png`));
           }
           logger.log('verbose', `第 ${i + 1}/${count}: 检测到 ${imagesSrc.length} 张示例图，已隐藏`);
         }
@@ -249,6 +261,7 @@ export class ScraperEngine {
 
         tasks.push({
           id: taskId,
+          index: indexStr,
           questionPath,
           answerSrc,
           answerPath,
@@ -313,15 +326,16 @@ export class ScraperEngine {
           }
         }
       });
-      await Promise.all(ocrPromises);
+      await this.withTimeout(Promise.all(ocrPromises), 120_000);
     }
 
     // 第五步：构建结果
     const results: ScrapeResult[] = tasks.map((t) => ({
       id: t.id,
-      questionPath: t.questionPath,
-      answerPath: fs.existsSync(t.answerPath) ? t.answerPath : '',
-      images: t.imagesPaths.filter(p => fs.existsSync(p)),
+      index: t.index,
+      questionPath: path.join(t.index, 'question.png'),
+      answerPath: fs.existsSync(t.answerPath) ? path.join(t.index, 'answer.png') : '',
+      images: t.imagesPaths.filter(p => fs.existsSync(p)).map(p => path.join(t.index, path.basename(p))),
       ...(t.source ? { source: t.source } : {}),
       ...(t.questionType ? { questionType: t.questionType } : {}),
       ...(t.difficulty ? { difficulty: t.difficulty } : {}),
@@ -333,12 +347,21 @@ export class ScraperEngine {
     }));
 
     const output: ScrapeOutput = { options: meta, results };
-    const jsonPath = path.join(outputDir, `results_${Date.now()}.json`);
+    const jsonPath = path.join(batchDir, 'results.json');
     fs.writeFileSync(jsonPath, JSON.stringify(output, null, 2), 'utf-8');
     logger.log('quiet', `结果已保存到: ${jsonPath}`);
 
     await browserManager.close();
-    process.exit(0);
+    return output;
+  }
+
+  /** 带超时的 Promise 包装，超时后跳过剩余任务直接 resolve */
+  private async withTimeout<T>(promise: Promise<T>, ms: number): Promise<void> {
+    const timeout = new Promise<void>((resolve) => setTimeout(() => {
+      logger.log('normal', `全局 OCR 超时（${ms / 1000}s），跳过剩余任务`);
+      resolve();
+    }, ms));
+    await Promise.race([promise, timeout]);
   }
 
   private async scrollToLoadQuestions(): Promise<void> {
