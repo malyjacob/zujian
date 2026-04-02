@@ -13,6 +13,7 @@
 - **持久化浏览器**：浏览器一次启动、多次抓取，减少资源占用、降低反爬风险
 - **并行下载**：多张答案图片、示例图同时下载，全程非阻塞
 - **云端部署**：支持无头模式，可部署在服务器环境
+- **文档导出**：抓取完成后自动生成 HTML 和 Markdown 文档，支持多主题切换
 
 ## 安装
 
@@ -101,12 +102,15 @@ zujuan scrape -k <knowledge_id> [options]
 | `-d, --difficulty <level>` | 难度，详见下方难度说明 | 全部难度 |
 | `-y, --year <year>` | 年份（2026/2025/2024/2023/-1，-1表示更早） | 全部年份 |
 | `-g, --grade <grade>` | 年级：`high`=高中 `middle`=初中 | 配置中的 `grade` |
-| `-r, --order <order>` | 排序：`latest`=`hot`=`comprehensive` | 配置中的 `order` |
+| `-r, --order <order>` | 排序：`latest`/`hot`/`comprehensive` | 配置中的 `order` |
 | `-l, --limit <number>` | 最大抓取数量（1-10） | `10` |
 | `-mc, --multi-count <number>` | 多选题答案数量（2/3/4+） | 不限制 |
 | `-fc, --fill-count <number>` | 填空题空数（1/2/3+） | 不限制 |
 | `-p, --page <number>` | 分页页码（第2页起为 `o2p2` 格式） | `1` |
-| `-ll, --log-level <level>` | 日志级别：`quiet`=`normal`=`verbose` | `quiet`（默认） |
+| `-ll, --log-level <level>` | 日志级别：`quiet`/`normal`/`verbose` | `quiet` |
+| `-e, --export` | 抓取完成后导出为 HTML 或 Markdown 文档 | 不导出 |
+| `--format <formats>` | 导出格式：`html`/`markdown`/`both`（逗号分隔） | `both` |
+| `--theme <theme>` | HTML 主题：`light`(白底)/`dark`(深色)/`sepia`(米黄) | `light` |
 
 **日志级别说明（`-ll`）：**
 
@@ -116,8 +120,6 @@ zujuan scrape -k <knowledge_id> [options]
 | `normal` | 普通，包含抓取进度、错误警告和最终路径 | 日常使用推荐 |
 | `verbose` | 详细，包含每题处理步骤、下载进度等调试信息 | 调试用 |
 
-> 覆盖配置中的 `logLevel`，每次抓取可单独指定。
-
 **题型筛选（`-t`）：**
 
 | 值 | 说明 | 高中题型码 | 初中题型码 |
@@ -126,8 +128,6 @@ zujuan scrape -k <knowledge_id> [options]
 | `t2` | 多选题 | `qt2704` | `qt1104` |
 | `t3` | 填空题 | `qt2702` | `qt1102` |
 | `t4` | 解答题 | `qt2703` | `qt1103` |
-
-> 注意：高中和初中的题型码不同，工具会自动根据年级选择对应的题型码。
 
 **难度筛选（`-d`）：**
 
@@ -142,7 +142,7 @@ zujuan scrape -k <knowledge_id> [options]
 **排序方式（`-r`）：**
 
 | 值 | 说明 | URL 后缀 |
-|----|------|--------|
+|----|------|---------|
 | `latest` | 最新（默认） | `o2` |
 | `hot` | 最热 | `o1` |
 | `comprehensive` | 综合 | `o0` |
@@ -164,6 +164,57 @@ zujuan scrape -k zsd28279 -t t2 -mc 4 -l 5
 
 # 抓取第2页结果
 zujuan scrape -k zsd28279 -l 5 -p 2
+
+# 抓取并自动导出 HTML + Markdown
+zujuan scrape -k zsd28279 -l 3 --export
+
+# 抓取并导出深色主题 HTML
+zujuan scrape -k zsd28279 -l 3 --export --format html --theme dark
+```
+
+---
+
+### export 命令
+
+将抓取结果导出为 HTML 或 Markdown 文档。
+
+```bash
+zujuan export [timestamp] [options]
+```
+
+**位置参数：**
+
+| 参数 | 说明 |
+|------|------|
+| `timestamp` | 抓取结果目录名（timestamp），省略时自动查找 `./zujuan-output/` 下最新的目录 |
+
+**选项：**
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `--format <formats>` | 导出格式：`html`/`markdown`/`both`（逗号分隔） | `both` |
+| `--theme <theme>` | HTML 主题：`light`(白底)/`dark`(深色)/`sepia`(米黄) | `light` |
+
+**示例：**
+
+```bash
+# 自动查找最新目录，导出 HTML + Markdown + ZIP
+zujuan export
+
+# 指定目录
+zujuan export 1775124931867
+
+# 只导出 HTML
+zujuan export --format html
+
+# 只导出 Markdown
+zujuan export --format markdown
+
+# 导出深色主题 HTML
+zujuan export --format html --theme dark
+
+# 同时导出 HTML 和 Markdown
+zujuan export --format html,markdown
 ```
 
 ---
@@ -207,6 +258,11 @@ zujuan config --reset
 | `-r, --order <order>` | 设置默认排序：`latest`/`hot`/`comprehensive` | `latest` |
 | `-d, --depth <n>` | 设置 list 命令默认最大查询深度 | `1` |
 | `-ll, --log-level <level>` | 设置日志级别：`quiet`/`normal`/`verbose` | `quiet` |
+| `--export-format <format>` | 设置导出格式：`html`/`markdown`/`both` | `both` |
+| `--vision-api-url <url>` | 设置视觉模型 API 地址 | `""` |
+| `--vision-api-key <key>` | 设置视觉模型 API Key | `""` |
+| `--vision-model <model>` | 设置视觉模型名称 | `""` |
+| `--vision-enabled` | 启用视觉 OCR | （默认关闭） |
 
 > 隐藏配置项（不暴露在帮助文本中，但可通过 `config --reset` 恢复默认值）：`cookie`、`browserPort`、`headless`、`logEnabled`
 
@@ -222,11 +278,14 @@ zujuan config -g middle
 # 设置默认排序为最热
 zujuan config -r hot
 
-# 同时设置年级和排序
-zujuan config -g middle -r hot
+# 设置默认导出格式为 HTML
+zujuan config --export-format html
 
-# 设置日志级别为详细（调试用）
-zujuan config -ll verbose
+# 启用视觉 OCR
+zujuan config --vision-api-url "https://openrouter.ai/api/v1" \
+  --vision-api-key "sk-or-v1-xxx" \
+  --vision-model "qwen/qwen3-vl-32b-instruct" \
+  --vision-enabled
 
 # 重置所有配置为默认值
 zujuan config --reset
@@ -353,7 +412,8 @@ zujuan browse -i zsd28279
 | `order` | `"latest" \| "hot" \| "comprehensive"` | 默认排序 | `"latest"` |
 | `treeDepth` | `number` | list 命令默认最大查询深度 | `1` |
 | `logLevel` | `"quiet" \| "normal" \| "verbose"` | 默认日志级别 | `"quiet"` |
-| `visionApiUrl` | `string` | 视觉模型 API 地址（如 OpenAI 兼容端点） | `""` |
+| `exportFormat` | `"html" \| "markdown" \| "both"` | 默认导出格式 | `"both"` |
+| `visionApiUrl` | `string` | 视觉模型 API 地址 | `""` |
 | `visionApiKey` | `string` | 视觉模型 API Key | `""` |
 | `visionModel` | `string` | 视觉模型名称 | `""` |
 | `visionEnabled` | `boolean` | 是否启用视觉 OCR | `false` |
@@ -364,18 +424,32 @@ zujuan browse -i zsd28279
 
 ## 输出结果
 
-抓取结果保存在配置的输出目录中，默认 `zujuan-output/`。
+抓取结果保存在 `./zujuan-output/` 目录下，按抓取时间戳组织目录：
 
 ```
 zujuan-output/
-├── q_1234567890_0_question.png   # 题目截图（仅题目内容区域，示例图已隐藏）
-├── q_1234567890_0_answer.png      # 答案图片（通过网络下载，非截图）
-├── q_1234567890_0_img_0.png       # 示例图（如有）
-├── q_1234567890_0_img_1.png       # 示例图（如有多张）
-├── q_1234567890_1_question.png
-├── q_1234567890_1_answer.png
-├── ...
-└── results_1234567890.json         # 汇总结果（含每题元数据）
+└── {timestamp}/              # 每次抓取一个时间戳目录
+    ├── results.json          # 汇总结果（含每题元数据）
+    ├── 001/                  # 第1题目录（以序数命名，补零对齐）
+    │   ├── question.png       # 题目截图
+    │   ├── answer.png         # 答案图片
+    │   ├── img_0.png         # 示例图（如有）
+    │   └── ...
+    ├── 002/
+    │   └── ...
+    ├── 001.zip               # 第1题 Markdown 打包（如有导出 Markdown）
+    └── 002.zip
+```
+
+每题的 HTML 和 Markdown 文件（如有导出）也放在对应的题号目录下：
+
+```
+{timestamp}/001/
+├── question.png
+├── answer.png
+├── img_0.png
+├── index.html               # HTML 文档（内嵌三主题切换器）
+└── index.md                # Markdown 文档
 ```
 
 **JSON 结果格式：**
@@ -383,46 +457,47 @@ zujuan-output/
 ```json
 {
   "options": {
+    "timestamp": "1775124931867",
     "knowledgeId": "zsd28279",
-    "knowledgePoint": "函数的基本概念",
+    "knowledgePoint": "平面解析几何",
     "grade": "高中",
-    "order": "最新"
+    "order": "最新",
+    "type": "解答题",
+    "difficulty": "较难"
   },
   "results": [
     {
-      "id": "q_1234567890_0",
-      "questionPath": "zujuan-output/q_1234567890_0_question.png",
-      "answerPath": "zujuan-output/q_1234567890_0_answer.png",
-      "images": [
-        "zujuan-output/q_1234567890_0_img_0.png",
-        "zujuan-output/q_1234567890_0_img_1.png"
-      ],
+      "id": "q_1775124931867_0",
+      "index": "001",
+      "questionPath": "001/question.png",
+      "answerPath": "001/answer.png",
+      "images": ["001/img_0.png"],
       "source": "2024年全国高考甲卷",
-      "questionType": "解答题",
+      "questionType": "解答题-问答题",
       "difficulty": "较难",
       "scoreRate": 0.45,
-      "knowledgeKeywords": ["函数", "单调性", "极值"],
-      "questionText": "## 题目\n设函数 $f(x) = x^3 - 3x + 1$...",
-      "answerText": "【答案】\n【分析】...\n【详解】...",
-      "timestamp": "2026-03-27T10:30:00.000Z"
-    },
-    {
-      "id": "q_1234567890_1",
-      "questionPath": "zujuan-output/q_1234567890_1_question.png",
-      "answerPath": "zujuan-output/q_1234567890_1_answer.png",
-      "images": [],
-      "difficulty": "容易",
-      "scoreRate": 0.88,
-      "knowledgeKeywords": ["函数的奇偶性"],
-      "questionText": "## 题目\n判断函数 $f(x) = x^2$ 的奇偶性...",
-      "answerText": "【答案】偶函数\n【分析】...\n【详解】...",
-      "timestamp": "2026-03-27T10:30:02.000Z"
+      "knowledgeKeywords": ["椭圆", "最值问题"],
+      "questionText": "1. 已知椭圆 $C: \\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1$...",
+      "answerText": "【答案】...(LaTeX 公式)",
+      "timestamp": "2026-04-02T10:00:00.000Z"
     }
   ]
 }
 ```
 
-> `options` 为本次抓取的筛选条件，`grade` 和 `order` 始终存在，其余字段仅在命令行指定时出现。`year` 为 `-1` 时表示指定了"更早年份"选项。每题的 `source`/`questionType`/`difficulty`/`scoreRate`/`knowledgeKeywords` 为实际元数据，未获取到时不写入。
+> `options.timestamp` 为本次抓取的目录名。`index` 为题目序号（补零对齐）。`questionPath`、`answerPath`、`images` 均为相对于 `{timestamp}/` 的相对路径，便于 HTML/Markdown 引用。
+
+---
+
+## HTML 文档说明
+
+导出的 HTML 文件包含：
+
+- **MathJax 3 CDN** 渲染 LaTeX 公式
+- **三主题切换器**：白底 / 米黄 / 深色，固定在页面右上角，切换无闪烁，自动记忆到 `localStorage`
+- **答案解析折叠**：默认折叠，点击展开/收起
+- **截图区折叠**：默认折叠，包含题目截图和答案截图
+- **图片点击放大**：点击截图在新窗口打开原图
 
 ---
 
@@ -431,30 +506,31 @@ zujuan-output/
 ```
 ┌──────────────────────────────────────────────────────────┐
 │                      CLI 命令层                           │
-│   start (启动+登录) │ scrape (抓取) │ shutup (关闭)      │
+│  start (启动+登录) │ scrape (抓取) │ export (导出) │ shutup  │
 └──────────┬────────────────────┬──────────────────────────┘
            │                    │
            ▼                    ▼
 ┌──────────────────────────────────────────────────────────┐
 │                  BrowserManager（单例）                   │
-│  launch() — 启动浏览器（仅 start 调用一次）                │
-│  connect() — 连接到已运行浏览器（每次 scrape 调用）         │
-│  close()    — 关闭 CDP 连接（每次 scrape 结束时调用）      │
+│  launch() — 启动浏览器（仅 start 调用一次）              │
+│  connect() — 连接到已运行浏览器（每次 scrape 调用）      │
+│  close()    — 关闭 CDP 连接（每次 scrape 结束时调用）    │
 └──────────┬────────────────────┬──────────────────────────┘
            │                    │
            ▼                    ▼
 ┌──────────────────────────────────────────────────────────┐
 │                 ~/.zujuan-scraper/                        │
-│  config.json          用户配置                             │
-│  storage-state.json   登录 Cookie 状态                    │
-│  .browser-state.json  浏览器 PID / WebSocket 端点         │
-│  zujuan.log           运行日志                             │
-│  login-qr.png         二维码截图                           │
-│  knowledge-tree.db     知识点树 SQLite 数据库              │
+│  config.json          用户配置                           │
+│  storage-state.json   登录 Cookie 状态                   │
+│  .browser-state.json 浏览器 PID / WebSocket 端点        │
+│  zujuan.log           运行日志                           │
+│  login-qr.png         二维码截图                         │
+│  knowledge-tree.db    知识点树 SQLite 数据库            │
 └──────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────┐
-│                 ./zujuan-output/                          │
-│  抓取结果：题目截图、答案图片、JSON 结果                    │
+│                 ./zujuan-output/{timestamp}/             │
+│  抓取结果：{index}/question.png, answer.png, img_*.png│
+│  results.json, 001.zip, 002.zip...                     │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -470,12 +546,15 @@ zujuan-output/
    - 收集 `div.exam-item__cnt > p img` 示例图 URL，设为 `hidden`（不占位）
    - 截取 `exam-item__cnt` 区域（仅题目内容，示例图已隐藏）
    - 点击触发答案图片懒加载
-   - 轮询获取答案 img src
+   - 轮询获取答案 img src（最多等待 1.5 秒）
    - **并行下载**所有答案图片
    - **并行下载**所有示例图
    - **并行视觉 OCR**（`visionEnabled=true` 时）：题目图片调用 `imageToMarkdown`，答案图片调用 `answerToMarkdown`（忽略几何图）
-6. 保存 JSON 结果
-7. `close()` 关闭连接 + `process.exit(0)` 退出进程
+   - 全局 OCR 兜底超时（120 秒），超时后跳过剩余 OCR 继续执行
+6. 保存 JSON 结果到 `{timestamp}/results.json`
+7. `close()` 关闭连接
+8. 如指定 `--export`：调用 export 模块生成 HTML 和/或 Markdown 文档
+9. `process.exit(0)` 退出进程
 
 ---
 
@@ -509,7 +588,7 @@ ID 格式为 `zsd` 开头的一串数字，如 `zsd28279`。
 
 ### Q：scrape 命令执行完后进程不退出？
 
-已修复。`scrape` 完成后会调用 `browserManager.close()` 关闭 CDP 连接并 `process.exit(0)` 强制退出。如果仍有残留，手动 `Ctrl+C` 或运行 `shutup` 关闭浏览器。
+`scrape` 完成后会调用 `browserManager.close()` 关闭 CDP 连接并 `process.exit(0)` 强制退出。如果仍有残留，手动 `Ctrl+C` 或运行 `shutup` 关闭浏览器。
 
 ### Q：如何抓取多页的题目？
 
@@ -589,9 +668,22 @@ zujuan scrape -k zsd28279 -l 5
 
 不建议。`scrape` 命令会复用同一个 CDP 连接，同时运行会导致冲突。如需同时抓取多个知识点，建议分多次执行。
 
-### Q：想修改抓取题目的数量上限？
+### Q：视觉 OCR 失败/超时怎么办？
 
-当前硬编码上限为 `10`。如需修改，编辑源码 `src/lib/scraper.ts` 中的 `limit = Math.min(totalQuestions, limit)` 附近逻辑，或在 `scrape.ts` 的 `parseInt` 逻辑处调整。
+- 单个 OCR 请求有 30 秒超时（OpenAI API）
+- 全局 OCR 流程有 120 秒兜底超时，超时后跳过剩余 OCR 并继续保存 JSON
+- 答案 OCR 失败不影响题目 OCR，已获取的题目文字会保留
+
+### Q：如何更换视觉模型 API？
+
+```bash
+zujuan config --vision-api-url "https://openrouter.ai/api/v1" \
+  --vision-api-key "sk-or-v1-xxx" \
+  --vision-model "qwen/qwen3-vl-32b-instruct" \
+  --vision-enabled
+```
+
+支持的 API：OpenAI 兼容格式（OpenAI、OpenRouter、Silicon Flow 等）。
 
 ---
 
